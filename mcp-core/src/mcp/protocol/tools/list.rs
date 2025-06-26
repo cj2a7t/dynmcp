@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::{
     mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex},
-    model::mcp_tool::McpTool,
+    model::tds::TDS,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -23,8 +23,8 @@ pub struct Tool {
     name: String,
 }
 
-impl From<McpTool> for Tool {
-    fn from(tool: McpTool) -> Self {
+impl From<TDS> for Tool {
+    fn from(tool: TDS) -> Self {
         Tool {
             description: tool.description,
             input_schema: tool.input_schema,
@@ -50,22 +50,22 @@ pub struct ListToolsRequest {
 #[derive(Default)]
 pub struct ListToolsProtocol;
 
-#[mcp_proto("list/tools")]
+#[mcp_proto("tools/list")]
 impl MCProtocol for ListToolsProtocol {
     type JSONRPCRequest = ListToolsRequest;
     type JSONRPCResponse = ListToolsResponse;
 
     fn cast(&self, value: &Value) -> Result<Self::JSONRPCRequest> {
-        let req: ListToolsRequest = serde_json::from_value(value.clone())?;
+        let req = serde_json::from_value(value.clone())?;
         Ok(req)
     }
 
     fn call(&self, req: ListToolsRequest, reqx: &Requestx) -> (ListToolsResponse, Responsex) {
-        let _instance_id = reqx.instance_id.clone();
+        let instance_id = reqx.instance_id.clone();
         let mcp_cache = reqx.mcp_cache;
 
         let tools = mcp_cache
-            .list_tools()
+            .list_tds_by_ids_id(&instance_id)
             .into_iter()
             .map(Tool::from)
             .collect::<Vec<Tool>>();
