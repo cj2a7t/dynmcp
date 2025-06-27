@@ -7,12 +7,12 @@ use axum::{
 use serde_json::json;
 
 #[derive(Debug)]
-pub struct AppError {
+pub struct RestAPIError {
     pub error: Error,
     pub status: StatusCode,
 }
 
-impl AppError {
+impl RestAPIError {
     pub fn internal<E: Into<Error>>(err: E) -> Self {
         Self {
             error: err.into(),
@@ -35,13 +35,13 @@ impl AppError {
     }
 }
 
-impl<E: Into<Error>> From<E> for AppError {
+impl<E: Into<Error>> From<E> for RestAPIError {
     fn from(err: E) -> Self {
-        AppError::internal(err)
+        RestAPIError::internal(err)
     }
 }
 
-impl IntoResponse for AppError {
+impl IntoResponse for RestAPIError {
     fn into_response(self) -> Response {
         let status = self.status;
         let body = Json(json!({

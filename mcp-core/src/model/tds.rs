@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TDSx {
@@ -29,4 +29,14 @@ pub struct TDS {
     pub input_schema: HashMap<String, Value>,
     // Extended information about the tool's API integration
     pub tds_ext_info: TDSx,
+}
+
+impl TDS {
+    pub fn validate(&self) -> Result<()> {
+        if self.id.is_empty() {
+            Err(anyhow!("TDS validation failed: id is empty"))
+        } else {
+            Ok(())
+        }
+    }
 }

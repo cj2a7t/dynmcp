@@ -1,6 +1,6 @@
 use anyhow::Result;
 use deadpool::managed::{Manager, Metrics, Pool, RecycleResult};
-use etcd_client::{Client, ConnectOptions, GetOptions, PutOptions, WatchOptions};
+use etcd_client::{Client, ConnectOptions, DeleteOptions, GetOptions, PutOptions, WatchOptions};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -109,6 +109,18 @@ impl EtcdClientProvider {
             .transpose()
             .map_err(EtcdError::from)?;
         Ok(result)
+    }
+
+    /// Delete by key.
+    ///
+    /// # Example
+    /// ```rust
+    /// let val = etcd.delete("/foo").await?;
+    /// ```
+    pub async fn delete(&self, key: &str) -> Result<bool> {
+        let mut client = self.pool.get().await?;
+        let resp = client.delete(key, Some(DeleteOptions::new())).await?;
+        Ok(resp.deleted() > 0)
     }
 
     /// Get all key-value pairs with a specific prefix.

@@ -1,12 +1,9 @@
 use anyhow::Result;
 use dashmap::DashMap;
-use mcp_common::etcd::etcd_client_provider::{EtcdClientProvider, EtcdEventType, EtcdWatchEvent};
+use mcp_common::{constants::constants::mcp_cache_consts::{ETCD_IDS_PREFIX, ETCD_TDS_PREFIX}, etcd::etcd_client_provider::{EtcdClientProvider, EtcdEventType, EtcdWatchEvent}};
 use std::sync::Arc;
 
 use crate::model::{ids::IDS, tds::TDS};
-
-const ETCD_TDS_PREFIX: &str = "/dynmcp/tds/";
-const ETCD_IDS_PREFIX: &str = "/dynmcp/ids/";
 
 #[derive(Clone)]
 pub struct McpCache {
@@ -49,8 +46,7 @@ impl McpCache {
 
     fn insert_tds(&self, key: String, value: TDS) {
         self.tds_map.insert(key, value.clone());
-        self.tds_name_map
-            .insert(value.name, value.id);
+        self.tds_name_map.insert(value.name, value.id);
     }
 
     fn remove_tds(&self, key: &str) {
