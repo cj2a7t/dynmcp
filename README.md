@@ -2,6 +2,8 @@
 
 > **Dynamic MCP — Seamlessly Binding Tools and Virtual Services.**
 
+⚠️ **Status: In Development – Not Ready for Production Use**
+
 `dynmcp` is a lightweight and extensible implementation of the Model Context Protocol (MCP). It enables dynamic registration of tools and virtual services through a unified JSON-RPC interface — ideal for AI agents, LLM-based workflows, and dynamic orchestration of service backends.
 
 ---
