@@ -1,2 +1,2 @@
-pub mod tds;
-pub mod ids;
+pub mod xds;
+pub mod spec;

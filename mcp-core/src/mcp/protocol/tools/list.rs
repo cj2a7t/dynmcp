@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::{
     mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex},
-    model::tds::TDS,
+    model::xds::tds::TDS,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,11 +24,11 @@ pub struct Tool {
 }
 
 impl From<TDS> for Tool {
-    fn from(tool: TDS) -> Self {
+    fn from(tds: TDS) -> Self {
         Tool {
-            description: tool.description,
-            input_schema: tool.input_schema,
-            name: tool.name,
+            description: tds.description,
+            input_schema: tds.input_schema,
+            name: tds.name,
         }
     }
 }

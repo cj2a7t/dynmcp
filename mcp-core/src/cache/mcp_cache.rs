@@ -3,7 +3,8 @@ use dashmap::DashMap;
 use mcp_common::{constants::constants::mcp_cache_consts::{ETCD_IDS_PREFIX, ETCD_TDS_PREFIX}, etcd::etcd_client_provider::{EtcdClientProvider, EtcdEventType, EtcdWatchEvent}};
 use std::sync::Arc;
 
-use crate::model::{ids::IDS, tds::TDS};
+use crate::model::xds::{ids::IDS, tds::TDS};
+
 
 #[derive(Clone)]
 pub struct McpCache {
