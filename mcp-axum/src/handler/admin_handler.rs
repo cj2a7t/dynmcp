@@ -5,7 +5,7 @@ use crate::{
 };
 use axum::{extract::Path, response::IntoResponse, Json};
 use mcp_common::constants::constants::mcp_cache_consts::{ETCD_IDS_PREFIX, ETCD_TDS_PREFIX};
-use mcp_core::model::{ids::IDS, tds::TDS};
+use mcp_core::model::xds::{ids::IDS, tds::TDS};
 
 pub async fn handle_put_tds(Json(tds): Json<TDS>) -> Result<impl IntoResponse, RestAPIError> {
     tds.validate().map_err(RestAPIError::bad_request)?;

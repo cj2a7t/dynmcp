@@ -1,10 +1,10 @@
 use std::{any::Any, sync::Arc};
 
+use anyhow::Result;
 use dashmap::DashMap;
 use erased_serde::Serialize as ErasedSerialize;
 use once_cell::sync::Lazy;
 use serde_json::Value;
-use anyhow::Result;
 
 use crate::cache::mcp_cache::McpCache;
 
@@ -17,6 +17,9 @@ pub struct Responsex {
 impl Responsex {
     pub fn default() -> Self {
         Responsex { http_status: 200 }
+    }
+    pub fn accepted() -> Self {
+        Responsex { http_status: 202 }
     }
 }
 
