@@ -1,14 +1,13 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use mcp_common::constants::constants::mcp_protocol_consts::JSONRPC_VERSION;
+use mcp_common::{constants::constants::mcp_protocol_consts::JSONRPC_VERSION, xds::tds::TDS};
 use mcp_macro::mcp_proto;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
     mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex},
-    model::xds::tds::TDS,
 };
 
 #[derive(Debug, Serialize, Deserialize)]

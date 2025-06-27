@@ -2,11 +2,11 @@ use crate::error::api_error::RestAPIError;
 use anyhow::{Context, Result};
 use mcp_common::provider::global_provider::get_etcd;
 
-pub async fn etcd_put<T: serde::Serialize>(
+pub async fn etcd_put<T: serde::Serialize + Clone>(
     prefix: &str,
     id: &str,
     value: &T,
-) -> Result<(), RestAPIError> {
+) -> Result<T, RestAPIError> {
     let etcd = get_etcd();
     let key = format!("{}{}", prefix, id);
     let json = serde_json::to_string(value)
@@ -15,7 +15,7 @@ pub async fn etcd_put<T: serde::Serialize>(
     etcd.put(&key, &json)
         .await
         .map_err(|e| RestAPIError::internal(anyhow::anyhow!("etcd.put failed: {e}")))?;
-    Ok(())
+    Ok(value.clone())
 }
 
 pub async fn etcd_get<T: for<'de> serde::Deserialize<'de>>(

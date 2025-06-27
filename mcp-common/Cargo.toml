@@ -8,6 +8,7 @@ name = "mcp_common"
 path = "src/lib.rs"
 
 [dependencies]
+dashmap = "6.1.0"
 etcd-client = "0.15.0"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"

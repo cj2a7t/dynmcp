@@ -1,10 +1,12 @@
 use anyhow::Result;
 use dashmap::DashMap;
-use mcp_common::{constants::constants::mcp_cache_consts::{ETCD_IDS_PREFIX, ETCD_TDS_PREFIX}, etcd::etcd_client_provider::{EtcdClientProvider, EtcdEventType, EtcdWatchEvent}};
 use std::sync::Arc;
 
-use crate::model::xds::{ids::IDS, tds::TDS};
-
+use crate::{
+    constants::constants::mcp_cache_consts::{ETCD_IDS_PREFIX, ETCD_TDS_PREFIX},
+    etcd::etcd_client_provider::{EtcdClientProvider, EtcdEventType, EtcdWatchEvent},
+    xds::{ids::IDS, tds::TDS},
+};
 
 #[derive(Clone)]
 pub struct McpCache {
@@ -45,12 +47,12 @@ impl McpCache {
             .collect()
     }
 
-    fn insert_tds(&self, key: String, value: TDS) {
+    pub fn insert_tds(&self, key: String, value: TDS) {
         self.tds_map.insert(key, value.clone());
         self.tds_name_map.insert(value.name, value.id);
     }
 
-    fn remove_tds(&self, key: &str) {
+    pub fn remove_tds(&self, key: &str) {
         if let Some(tool) = self.tds_map.get(key) {
             let name = tool.name.clone();
             self.tds_map.remove(key);
@@ -71,11 +73,11 @@ impl McpCache {
         )
     }
 
-    fn insert_ids(&self, key: String, value: IDS) {
+    pub fn insert_ids(&self, key: String, value: IDS) {
         self.ids_map.insert(key, value.clone());
     }
 
-    fn remove_ids(&self, key: &str) {
+    pub fn remove_ids(&self, key: &str) {
         self.ids_map.remove(key);
     }
 
