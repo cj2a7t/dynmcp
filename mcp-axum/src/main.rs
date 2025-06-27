@@ -11,6 +11,8 @@ use crate::{model::app_state::AppState, router::router::create_router};
 mod handler;
 mod model;
 mod router;
+mod error;
+mod utils;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
