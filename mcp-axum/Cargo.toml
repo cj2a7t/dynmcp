@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 mcp-core = { path = "../mcp-core" }
 mcp-common = { path = "../mcp-common" }
+mcp-plugin = { path = "../mcp-plugin" }
 axum = "0.8.4"
 tokio = { version = "1.45.1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }

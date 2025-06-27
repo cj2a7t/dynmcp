@@ -1032,6 +1032,7 @@ dependencies = [
  "arc-swap",
  "async-trait",
  "bytes",
+ "dashmap",
  "deadpool",
  "etcd-client",
  "once_cell",
@@ -1067,6 +1068,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mcp-plugin"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "ctor",
+ "dashmap",
+ "erased-serde",
+ "mcp-common",
+ "mcp-macro",
+ "once_cell",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "mcp_axum"
 version = "0.1.0"
 dependencies = [
@@ -1078,6 +1095,7 @@ dependencies = [
  "erased-serde",
  "mcp-common",
  "mcp-core",
+ "mcp-plugin",
  "mimalloc",
  "serde",
  "serde_json",

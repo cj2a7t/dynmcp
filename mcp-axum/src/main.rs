@@ -2,16 +2,19 @@ use std::sync::Arc;
 
 use anyhow::{Ok, Result};
 use clap::Parser;
-use mcp_common::provider::global_provider::{get_etcd, init_etcd_global};
-use mcp_core::cache::mcp_cache::McpCache;
+use mcp_common::{
+    cache::mcp_cache::McpCache,
+    provider::global_provider::{init_etcd_global},
+};
+use mcp_plugin::datasource::{datasource::DataSource, etcd_ds::EtcdDataSource};
 use tokio::net::TcpListener;
 
 use crate::{model::app_state::AppState, router::router::create_router};
 
+mod error;
 mod handler;
 mod model;
 mod router;
-mod error;
 mod utils;
 
 #[derive(Parser, Debug)]
@@ -32,17 +35,17 @@ async fn main() -> Result<()> {
     // args
     let args: Args = Args::parse();
 
-    // init etcd
-    init_etcd_global(args.etcd_endpoints, args.etcd_username, args.etcd_password).await?;
-
-    // build and watch local cache from etcd
-    let etcd = get_etcd();
+    // global McpCache
     let mcp_cache: Arc<McpCache> = Arc::new(McpCache::new());
-    let mcp_cache_for_watch = mcp_cache.clone();
-    mcp_cache_for_watch.start_watch(etcd.clone()).await?;
+
+    // DataSource setup: Here we're using EtcdDataSource
+    // But this could be replaced with other data sources (e.g., MySQL, Redis, etc.)
+    init_etcd_global(args.etcd_endpoints, args.etcd_username, args.etcd_password).await?;
+    let data_source = Arc::new(EtcdDataSource::new(mcp_cache.clone()));
+    DataSource::fetch_and_watch(data_source.clone()).await?;
 
     // init axum router
-    let app_state: AppState = AppState::new(mcp_cache);
+    let app_state: AppState = AppState::new(mcp_cache, data_source);
     let router: axum::Router = create_router(app_state);
 
     // axum start

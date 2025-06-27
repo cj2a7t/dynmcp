@@ -3,10 +3,10 @@ use std::{any::Any, sync::Arc};
 use anyhow::Result;
 use dashmap::DashMap;
 use erased_serde::Serialize as ErasedSerialize;
+use mcp_common::cache::mcp_cache::McpCache;
 use once_cell::sync::Lazy;
 use serde_json::Value;
 
-use crate::cache::mcp_cache::McpCache;
 
 static REGISTRY: Lazy<DashMap<String, Arc<dyn DynMCProtocol>>> = Lazy::new(DashMap::new);
 
