@@ -92,6 +92,7 @@ impl DataSource for EtcdDataSource {
     }
 
     async fn put<T: serde::Serialize + Clone + Send + Sync + 'static>(
+        self: Arc<Self>,
         id: &str,
         value: &T,
     ) -> Result<T, Error> {
@@ -101,7 +102,10 @@ impl DataSource for EtcdDataSource {
         Ok(value.clone())
     }
 
-    async fn get<T: for<'de> serde::Deserialize<'de>>(id: &str) -> Result<T, Error> {
+    async fn get<T: for<'de> serde::Deserialize<'de>>(
+        self: Arc<Self>,
+        id: &str,
+    ) -> Result<T, Error> {
         let etcd = get_etcd();
         let value_opt = etcd.get(id).await?;
         match value_opt {
@@ -113,7 +117,7 @@ impl DataSource for EtcdDataSource {
         }
     }
 
-    async fn delete(id: &str) -> Result<bool, Error> {
+    async fn delete(self: Arc<Self>, id: &str) -> Result<bool, Error> {
         let etcd = get_etcd();
         let deleted = etcd.delete(id).await?;
         Ok(deleted)

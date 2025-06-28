@@ -6,9 +6,13 @@ use std::sync::Arc;
 pub trait DataSource {
     async fn fetch_and_watch(self: Arc<Self>) -> Result<()>;
     async fn put<T: serde::Serialize + Clone + Send + Sync + 'static>(
+        self: Arc<Self>,
         id: &str,
         value: &T,
     ) -> Result<T, Error>;
-    async fn get<T: for<'de> serde::Deserialize<'de>>(id: &str) -> Result<T, Error>;
-    async fn delete(id: &str) -> Result<bool, Error>;
+    async fn get<T: for<'de> serde::Deserialize<'de>>(
+        self: Arc<Self>,
+        id: &str,
+    ) -> Result<T, Error>;
+    async fn delete(self: Arc<Self>, id: &str) -> Result<bool, Error>;
 }
