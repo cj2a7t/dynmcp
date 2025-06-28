@@ -15,7 +15,6 @@ mod error;
 mod handler;
 mod model;
 mod router;
-mod utils;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
