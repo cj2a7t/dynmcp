@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::datasource::datasource::DataSource;
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use mcp_common::{
     cache::mcp_cache::McpCache,
@@ -24,64 +24,52 @@ impl EtcdDataSource {
 #[async_trait]
 impl DataSource for EtcdDataSource {
     async fn fetch_and_watch(self: Arc<Self>) -> Result<()> {
-        let datasource = Arc::clone(&self);
         let etcd = get_etcd();
 
-        // xDS: Tool Discovery Service (TDS)
-        let tds_values = etcd.get_prefix(ETCD_TDS_PREFIX).await?;
-        let tds_mcp_cache_ref = datasource.mcp_cache.clone();
-        for (k, v) in tds_values {
+        let tds_pairs = etcd.get_prefix(ETCD_TDS_PREFIX).await?;
+        for (k, v) in tds_pairs {
             let tds: TDS = serde_json::from_str(&v)?;
-            datasource.mcp_cache.insert_tds(k, tds);
+            self.mcp_cache.insert_tds(k, tds);
         }
-
+        let tds_cache = self.mcp_cache.clone();
         etcd.watch(ETCD_TDS_PREFIX, move |event: EtcdWatchEvent| {
             match event.event_type {
                 EtcdEventType::Put => {
                     if let Some(val_str) = &event.value {
-                        match serde_json::from_str::<TDS>(val_str) {
-                            Ok(tds) => {
-                                tds_mcp_cache_ref.insert_tds(event.key, tds);
-                            }
-                            Err(_err) => {
-                                eprintln!("TODO");
-                            }
+                        if let Ok(tds) = serde_json::from_str::<TDS>(val_str) {
+                            tds_cache.insert_tds(event.key, tds);
+                        } else {
+                            eprintln!("Failed to parse TDS");
                         }
                     }
                 }
                 EtcdEventType::Delete => {
-                    tds_mcp_cache_ref.remove_tds(&event.key);
+                    tds_cache.remove_tds(&event.key);
                 }
                 _ => {}
             }
         })
         .await?;
 
-        //xDS:Instance Discovery Service (IDS)
-        let etcd_results = etcd.get_prefix(ETCD_IDS_PREFIX).await?;
-        let ids_mcp_cache_ref = datasource.mcp_cache.clone();
-
-        for (k, v) in etcd_results {
+        let ids_pairs = etcd.get_prefix(ETCD_IDS_PREFIX).await?;
+        for (k, v) in ids_pairs {
             let ids: IDS = serde_json::from_str(&v)?;
-            ids_mcp_cache_ref.insert_ids(k, ids);
+            self.mcp_cache.insert_ids(k, ids);
         }
-
+        let ids_cache = self.mcp_cache.clone();
         etcd.watch(ETCD_IDS_PREFIX, move |event: EtcdWatchEvent| {
             match event.event_type {
                 EtcdEventType::Put => {
                     if let Some(val_str) = &event.value {
-                        match serde_json::from_str::<IDS>(val_str) {
-                            Ok(ids) => {
-                                ids_mcp_cache_ref.insert_ids(event.key, ids);
-                            }
-                            Err(_err) => {
-                                eprintln!("TODO");
-                            }
+                        if let Ok(ids) = serde_json::from_str::<IDS>(val_str) {
+                            ids_cache.insert_ids(event.key, ids);
+                        } else {
+                            eprintln!("Failed to parse IDS");
                         }
                     }
                 }
                 EtcdEventType::Delete => {
-                    ids_mcp_cache_ref.remove_ids(&event.key);
+                    ids_cache.remove_ids(&event.key);
                 }
                 _ => {}
             }
@@ -91,35 +79,30 @@ impl DataSource for EtcdDataSource {
         Ok(())
     }
 
-    async fn put<T: serde::Serialize + Clone + Send + Sync + 'static>(
-        self: Arc<Self>,
-        id: &str,
-        value: &T,
-    ) -> Result<T, Error> {
+    async fn put<T>(self: Arc<Self>, id: &str, value: &T) -> Result<T>
+    where
+        T: serde::Serialize + Clone + Send + Sync + 'static,
+    {
         let etcd = get_etcd();
         let value_str = serde_json::to_string(value)?;
         etcd.put(id, &value_str).await?;
         Ok(value.clone())
     }
 
-    async fn get<T: for<'de> serde::Deserialize<'de>>(
-        self: Arc<Self>,
-        id: &str,
-    ) -> Result<T, Error> {
+    async fn get<T>(self: Arc<Self>, id: &str) -> Result<T>
+    where
+        T: for<'de> serde::Deserialize<'de>,
+    {
         let etcd = get_etcd();
         let value_opt = etcd.get(id).await?;
         match value_opt {
-            Some(value_str) => {
-                let value = serde_json::from_str::<T>(&value_str)?;
-                Ok(value)
-            }
-            None => Err(anyhow::anyhow!("Key not found")),
+            Some(value_str) => Ok(serde_json::from_str(&value_str)?),
+            None => Err(anyhow!("Key `{}` not found", id)),
         }
     }
 
-    async fn delete(self: Arc<Self>, id: &str) -> Result<bool, Error> {
+    async fn delete(self: Arc<Self>, id: &str) -> Result<bool> {
         let etcd = get_etcd();
-        let deleted = etcd.delete(id).await?;
-        Ok(deleted)
+        etcd.delete(id).await
     }
 }
