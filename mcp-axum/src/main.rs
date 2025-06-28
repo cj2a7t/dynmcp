@@ -6,7 +6,7 @@ use mcp_common::{
     cache::mcp_cache::McpCache,
     provider::global_provider::{init_etcd_global},
 };
-use mcp_plugin::datasource::{datasource::DataSource, etcd_ds::EtcdDataSource};
+use mcp_plugin::datasource::{datasource::DataSource, ds_enum::DataSourceEnum, etcd_ds::EtcdDataSource};
 use tokio::net::TcpListener;
 
 use crate::{model::app_state::AppState, router::router::create_router};
@@ -42,10 +42,11 @@ async fn main() -> Result<()> {
     // But this could be replaced with other data sources (e.g., MySQL, Redis, etc.)
     init_etcd_global(args.etcd_endpoints, args.etcd_username, args.etcd_password).await?;
     let data_source = Arc::new(EtcdDataSource::new(mcp_cache.clone()));
+    let data_source_enum = DataSourceEnum::Etcd(data_source.clone());
     DataSource::fetch_and_watch(data_source.clone()).await?;
 
     // init axum router
-    let app_state: AppState = AppState::new(mcp_cache, data_source);
+    let app_state: AppState = AppState::new(mcp_cache, Arc::new(data_source_enum));
     let router: axum::Router = create_router(app_state);
 
     // axum start

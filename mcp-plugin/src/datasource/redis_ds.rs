@@ -22,6 +22,7 @@ impl DataSource for RedisDataSource {
     }
 
     async fn put<T: serde::Serialize + Clone + Send + Sync + 'static>(
+        self: Arc<Self>,
         id: &str,
         value: &T,
     ) -> Result<T, anyhow::Error> {
@@ -29,12 +30,15 @@ impl DataSource for RedisDataSource {
         Err(anyhow::anyhow!("Not implemented"))
     }
 
-    async fn get<T: for<'de> serde::Deserialize<'de>>(id: &str) -> Result<T, anyhow::Error> {
+    async fn get<T: for<'de> serde::Deserialize<'de>>(
+        self: Arc<Self>,
+        id: &str,
+    ) -> Result<T, anyhow::Error> {
         // TODO: Implement actual logic
         Err(anyhow::anyhow!("Not implemented"))
     }
 
-    async fn delete(id: &str) -> Result<bool, anyhow::Error> {
+    async fn delete(self: Arc<Self>, id: &str) -> Result<bool, anyhow::Error> {
         // TODO: Implement actual logic
         Err(anyhow::anyhow!("Not implemented"))
     }
