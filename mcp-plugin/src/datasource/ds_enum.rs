@@ -3,12 +3,12 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::datasource::{
-    datasource::DataSource, etcd_ds::EtcdDataSource, redis_ds::RedisDataSource,
+    datasource::DataSource, etcd_ds::EtcdDataSource, mysql_ds::MysqlDataSource,
 };
 
 pub enum DataSourceEnum {
     Etcd(Arc<EtcdDataSource>),
-    Redis(Arc<RedisDataSource>),
+    Redis(Arc<MysqlDataSource>),
 }
 
 #[async_trait]
