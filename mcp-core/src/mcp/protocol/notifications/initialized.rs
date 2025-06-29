@@ -10,6 +10,7 @@ use crate::{
 #[derive(Default)]
 pub struct NotificationInitializedProtocol;
 
+#[async_trait::async_trait]
 #[mcp_proto("notifications/initialized")]
 impl MCProtocol for NotificationInitializedProtocol {
     type JSONRPCRequest = NotificationsInitializedRequest;
@@ -19,11 +20,11 @@ impl MCProtocol for NotificationInitializedProtocol {
         Ok(serde_json::from_value(value.to_owned())?)
     }
 
-    fn call(
+    async fn call(
         &self,
         _req: NotificationsInitializedRequest,
         _reqx: &Requestx,
-    ) -> (NotificationsInitializedResponse, Responsex) {
-        (Default::default(), Responsex::accepted())
+    ) -> Result<(NotificationsInitializedResponse, Responsex)> {
+        Ok((Default::default(), Responsex::accepted()))
     }
 }

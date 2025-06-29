@@ -15,6 +15,7 @@ use crate::{
 #[derive(Default)]
 pub struct InitializeProtocol;
 
+#[async_trait::async_trait]
 #[mcp_proto("initialize")]
 impl MCProtocol for InitializeProtocol {
     type JSONRPCRequest = InitRequest;
@@ -25,7 +26,7 @@ impl MCProtocol for InitializeProtocol {
         Ok(req)
     }
 
-    fn call(&self, req: InitRequest, _reqx: &Requestx) -> (InitResponse, Responsex) {
+    async fn call(&self, req: InitRequest, _reqx: &Requestx) -> Result<(InitResponse, Responsex)> {
         let response = InitResponse {
             jsonrpc: JSONRPC_VERSION.to_string(),
             id: req.id,
@@ -44,6 +45,6 @@ impl MCProtocol for InitializeProtocol {
             },
         };
 
-        (response, Responsex::default())
+        Ok((response, Responsex::default()))
     }
 }
