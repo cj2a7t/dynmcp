@@ -1,4 +1,8 @@
 use anyhow::Result;
+use async_trait::async_trait;
+use mcp_common::{
+    http_client::model::HttpRequestOptions, provider::global_provider::get_http_client,
+};
 use mcp_macro::mcp_proto;
 use serde_json::Value;
 
@@ -10,6 +14,7 @@ use crate::{
 #[derive(Default)]
 pub struct CallToolProtocol;
 
+#[async_trait]
 #[mcp_proto("tools/call")]
 impl MCProtocol for CallToolProtocol {
     type JSONRPCRequest = ToolCallRequest;
@@ -19,15 +24,38 @@ impl MCProtocol for CallToolProtocol {
         Ok(serde_json::from_value(value.to_owned())?)
     }
 
-    fn call(&self, req: ToolCallRequest, _reqx: &Requestx) -> (ToolCallResponse, Responsex) {
+    async fn call(
+        &self,
+        req: ToolCallRequest,
+        reqx: &Requestx,
+    ) -> Result<(ToolCallResponse, Responsex)> {
+        // find tds by name
+        let tds = reqx
+            .mcp_cache
+            .get_tds_by_name(&req.params.name)
+            .or(None)
+            .expect("Tool not found in cache");
+
+        // call API
+        let tds_ext_info = tds.tds_ext_info;
+
+        let url = format!("{}{}", tds_ext_info.domain, tds_ext_info.path);
+
+        let toolcall_req = HttpRequestOptions::<serde_json::Value> {
+            method: tds_ext_info.method.to_string(),
+            headers: Some(Default::default()),
+            body: Some(serde_json::Value::Null),
+        };
+        let toolcall_res: String = get_http_client()
+            .request_uri(&url, toolcall_req)
+            .await
+            .unwrap();
+
         let result = ToolCallResult {
             is_error: false,
             content: vec![ToolContent {
                 content_type: "text".into(),
-                text: format!(
-                    "Called tool '{}' with arguments: {:?}",
-                    req.params.name, req.params.arguments
-                ),
+                text: toolcall_res,
             }],
         };
 
@@ -37,6 +65,6 @@ impl MCProtocol for CallToolProtocol {
             result,
         };
 
-        (response, Responsex::default())
+        Ok((response, Responsex::default()))
     }
 }

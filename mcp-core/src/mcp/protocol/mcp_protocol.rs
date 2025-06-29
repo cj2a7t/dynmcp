@@ -1,12 +1,12 @@
 use std::{any::Any, sync::Arc};
 
 use anyhow::Result;
+use async_trait::async_trait;
 use dashmap::DashMap;
 use erased_serde::Serialize as ErasedSerialize;
 use mcp_common::cache::mcp_cache::McpCache;
 use once_cell::sync::Lazy;
 use serde_json::Value;
-
 
 static REGISTRY: Lazy<DashMap<String, Arc<dyn DynMCProtocol>>> = Lazy::new(DashMap::new);
 
@@ -29,65 +29,57 @@ pub struct Requestx<'a> {
 }
 
 pub struct DynExecuteResult {
-    pub response: Box<dyn ErasedSerialize>,
+    pub response: Box<dyn ErasedSerialize + Send + Sync>,
     pub respx: Responsex,
 }
 
+#[async_trait]
 pub trait MCProtocol {
-    type JSONRPCRequest: 'static;
-    type JSONRPCResponse: ErasedSerialize + 'static;
+    type JSONRPCRequest: 'static + Send;
+    type JSONRPCResponse: 'static + ErasedSerialize + Send + Sync;
 
-    fn call(
+    async fn call(
         &self,
         req: Self::JSONRPCRequest,
         _reqx: &Requestx,
-    ) -> (Self::JSONRPCResponse, Responsex);
+    ) -> Result<(Self::JSONRPCResponse, Responsex)>;
 
     fn cast(&self, value: &Value) -> Result<Self::JSONRPCRequest>;
 }
 
+#[async_trait]
 pub trait DynMCProtocol: Send + Sync {
-    fn call_boxed(&self, req: Box<dyn Any>, _reqx: &Requestx) -> Box<dyn Any>;
-
-    fn call_boxed_erased(
+    async fn call_boxed_erased(
         &self,
-        req: Box<dyn Any>,
+        req: Box<dyn Any + Send + Sync>,
         _reqx: &Requestx,
-    ) -> (Box<dyn ErasedSerialize>, Responsex);
+    ) -> Result<(Box<dyn ErasedSerialize + Send + Sync>, Responsex)>;
 
-    fn cast_boxed(&self, value: &Value) -> Result<Box<dyn Any>>;
+    fn cast_boxed(&self, value: &Value) -> Result<Box<dyn Any + Send + Sync>>;
 }
-
 pub struct DynWrapper<P: MCProtocol> {
     protocol: P,
 }
-
+#[async_trait]
 impl<P> DynMCProtocol for DynWrapper<P>
 where
     P: MCProtocol + Send + Sync + 'static,
-    P::JSONRPCResponse: ErasedSerialize,
+    P::JSONRPCRequest: Send + Sync + 'static,
+    P::JSONRPCResponse: ErasedSerialize + Send + Sync + 'static,
 {
-    fn call_boxed_erased(
+    async fn call_boxed_erased(
         &self,
-        req: Box<dyn Any>,
+        req: Box<dyn Any + Send + Sync>,
         _reqx: &Requestx,
-    ) -> (Box<dyn ErasedSerialize>, Responsex) {
+    ) -> Result<(Box<dyn ErasedSerialize + Send + Sync>, Responsex)> {
         let req = req
             .downcast::<P::JSONRPCRequest>()
-            .expect("req downcast failed");
-        let (response, extra) = self.protocol.call(*req, _reqx);
-        (Box::new(response), extra)
+            .expect("downcast failed");
+        let (response, extra) = self.protocol.call(*req, _reqx).await?;
+        Ok((Box::new(response), extra))
     }
 
-    fn call_boxed(&self, req: Box<dyn Any>, _reqx: &Requestx) -> Box<dyn Any> {
-        let req = req
-            .downcast::<P::JSONRPCRequest>()
-            .expect("invalid req type");
-        let output = self.protocol.call(*req, _reqx);
-        Box::new(output)
-    }
-
-    fn cast_boxed(&self, value: &Value) -> Result<Box<dyn Any>> {
+    fn cast_boxed(&self, value: &Value) -> Result<Box<dyn Any + Send + Sync>> {
         let req = self.protocol.cast(value)?;
         Ok(Box::new(req))
     }
@@ -96,83 +88,61 @@ where
 pub fn register_protocol<P>(key: &str, protocol: P)
 where
     P: MCProtocol + Send + Sync + 'static,
+    P::JSONRPCRequest: Send + Sync + 'static,
     P::JSONRPCResponse: ErasedSerialize,
 {
     REGISTRY.insert(key.to_string(), Arc::new(DynWrapper { protocol }));
 }
 
 pub fn get_protocol(method: &str) -> Option<Arc<dyn DynMCProtocol>> {
-    REGISTRY.get(method).map(|v| Arc::clone(&*v))
-}
-
-/// Executes a registered JSON-RPC method with statically known response type.
-///
-/// This function is used when the caller knows the expected type `O` of the response at compile time.
-/// It performs the following steps:
-/// 1. Extracts the `method` field from the `jsonrpc_request`.
-/// 2. Looks up the corresponding `MCProtocol` implementation.
-/// 3. Casts the request into the expected request type.
-/// 4. Calls the protocol's handler.
-/// 5. Downcasts the output to `(O, ExtraResponse)` and returns it.
-///
-/// # Type Parameters
-/// - `O`: The expected response type. Must be `'static` and match the actual implementation.
-///
-/// # Parameters
-/// - `jsonrpc_request`: The JSON-RPC request body as a `serde_json::Value`.
-/// - `mcp_cache`: A shared reference to the `McpCache` used by the handler.
-///
-/// # Returns
-/// - `Some((response, extra))` if everything succeeds and the output type matches `O`.
-/// - `None` if any step fails (e.g., missing method, cast failure, downcast failure).
-///
-/// # Example
-/// ```rust
-/// let (resp, extra): (MyResponseType, ExtraResponse) = execute::<MyResponseType>(req, &cache)?.into();
-/// ```
-pub fn execute<O>(jsonrpc_request: Value, _reqx: &Requestx) -> Option<(O, Responsex)>
-where
-    O: 'static,
-{
-    let method = jsonrpc_request.get("method")?.as_str()?;
-    let strat = get_protocol(method)?;
-    let req = strat.cast_boxed(&jsonrpc_request).ok()?;
-    let output = strat.call_boxed(req, _reqx);
-    output.downcast::<(O, Responsex)>().ok().map(|b| *b)
+    REGISTRY
+        .get(method)
+        .map(|v| Arc::clone(&*v) as Arc<dyn DynMCProtocol>)
 }
 
 /// Executes a registered JSON-RPC method with a dynamically typed response.
 ///
-/// This function is intended for generic or dynamic dispatch contexts, such as HTTP servers,
-/// where the exact response type is not known at compile time. The response is wrapped in a
-/// `Box<dyn ErasedSerialize>` to allow flexible serialization (e.g., to JSON) without
-/// requiring a concrete type.
+/// This function is designed for dynamic dispatch contexts, such as HTTP servers,
+/// where the exact response type isn't known at compile time. The response is returned as
+/// a boxed `dyn ErasedSerialize`, which allows type-erased serialization (e.g., to JSON).
 ///
-/// It also returns an `ExtraResponse` alongside the result, which contains metadata such as
-/// HTTP status code and elapsed processing time.
+/// It also returns a `Responsex` containing metadata such as HTTP status and processing time.
 ///
 /// # Parameters
-/// - `jsonrpc_request`: The JSON-RPC request body as a `serde_json::Value`. Must include a `"method"` field.
-/// - `mcp_cache`: A shared reference to the in-memory `McpCache` for protocol use.
+/// - `jsonrpc_request`: A JSON value representing the JSON-RPC request. Must contain a `"method"` field.
+/// - `_reqx`: A reference to the contextual `Requestx`, including shared resources like `McpCache`.
 ///
 /// # Returns
-/// - `Some(DynExecuteResult)` if:
-///   - the method exists in the registry,
-///   - request deserialization (`cast_boxed`) succeeds,
-///   - and the handler completes normally.
-/// - `None` if the method is missing, or casting fails.
+/// - `Ok(Some(DynExecuteResult))` if the method is found and executed successfully.
+/// - `Ok(None)` if the method is not found or request casting fails.
+/// - `Err(_)` if an internal error occurs.
 ///
 /// # Example
 /// ```rust
-/// let result = execute_dyn(req, &cache)?;
-/// tracing::info!("Response took {}ms", result.extra.elapsed_ms);
-/// let json = serde_json::to_string(&result.response).unwrap();
+/// if let Some(result) = execute_dyn(req, &cache).await? {
+///     tracing::info!("Took {}ms", result.respx.elapsed_ms);
+///     let json = serde_json::to_string(&result.response)?;
+/// }
 /// ```
+pub async fn execute_dyn(
+    jsonrpc_request: Value,
+    _reqx: &Requestx<'_>,
+) -> Result<Option<DynExecuteResult>> {
+    let method = match jsonrpc_request.get("method").and_then(|v| v.as_str()) {
+        Some(m) => m,
+        None => return Ok(None),
+    };
 
-pub fn execute_dyn(jsonrpc_request: Value, _reqx: &Requestx) -> Option<DynExecuteResult> {
-    let method = jsonrpc_request.get("method")?.as_str()?;
-    let strat = get_protocol(method)?;
-    let req = strat.cast_boxed(&jsonrpc_request).ok()?;
-    let (response, respx) = strat.call_boxed_erased(req, _reqx);
-    Some(DynExecuteResult { response, respx })
+    let strat: Arc<dyn DynMCProtocol> = match get_protocol(method) {
+        Some(s) => s,
+        None => return Ok(None),
+    };
+
+    let req = match strat.cast_boxed(&jsonrpc_request) {
+        Ok(r) => r,
+        Err(_) => return Ok(None),
+    };
+
+    let (response, respx) = strat.call_boxed_erased(req, _reqx).await?;
+    Ok(Some(DynExecuteResult { response, respx }))
 }

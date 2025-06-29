@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{anyhow, Error, Result};
 use mcp_common::{
     cache::mcp_cache::McpCache,
     provider::global_provider::{init_etcd_global, init_mysql_pool},
@@ -18,13 +18,13 @@ pub enum DataSourceFactory {
 }
 
 impl FromStr for DataSourceFactory {
-    type Err = anyhow::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "etcd" => Ok(DataSourceFactory::Etcd),
             "mysql" => Ok(DataSourceFactory::Mysql),
-            _ => Err(anyhow::anyhow!("Unknown data source type: {}", s)),
+            _ => Err(anyhow!("Unknown data source type: {}", s)),
         }
     }
 }

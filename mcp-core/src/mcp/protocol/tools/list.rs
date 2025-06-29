@@ -49,6 +49,7 @@ pub struct ListToolsRequest {
 #[derive(Default)]
 pub struct ListToolsProtocol;
 
+#[async_trait::async_trait]
 #[mcp_proto("tools/list")]
 impl MCProtocol for ListToolsProtocol {
     type JSONRPCRequest = ListToolsRequest;
@@ -59,7 +60,7 @@ impl MCProtocol for ListToolsProtocol {
         Ok(req)
     }
 
-    fn call(&self, req: ListToolsRequest, reqx: &Requestx) -> (ListToolsResponse, Responsex) {
+    async fn call(&self, req: ListToolsRequest, reqx: &Requestx) -> Result<(ListToolsResponse, Responsex)> {
         let instance_id = reqx.instance_id.clone();
         let mcp_cache = reqx.mcp_cache;
 
@@ -68,13 +69,13 @@ impl MCProtocol for ListToolsProtocol {
             .into_iter()
             .map(Tool::from)
             .collect::<Vec<Tool>>();
-        (
+        Ok((
             ListToolsResponse {
                 result: RpcResult { tools },
                 jsonrpc: JSONRPC_VERSION.to_string(),
                 id: req.id,
             },
             Responsex::default(),
-        )
+        ))
     }
 }
