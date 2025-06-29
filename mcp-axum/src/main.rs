@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use anyhow::{Ok, Result};
 use clap::Parser;
-use mcp_common::{cache::mcp_cache::McpCache, DynMcpArgs};
+use mcp_common::{cache::mcp_cache::McpCache, log::log::init_logging, DynMcpArgs};
 use mcp_plugin::datasource::factory::DataSourceFactory;
 use tokio::net::TcpListener;
+use tracing::info;
 
 use crate::{model::app_state::AppState, router::router::create_router};
 
@@ -18,8 +19,12 @@ async fn main() -> Result<()> {
     // args
     let args: DynMcpArgs = DynMcpArgs::parse();
 
+    // init logging
+    let _guard = init_logging();
+
     // global McpCache
     let mcp_cache: Arc<McpCache> = Arc::new(McpCache::new());
+    info!("McpCache initialized");
 
     // DataSource setup: Here we're using MysqlDataSource as an example.
     // You can use EtcdDataSource or any other data source as needed.
@@ -30,6 +35,7 @@ async fn main() -> Result<()> {
     let ds = ds_factory
         .create_data_source_enum(args, mcp_cache.clone())
         .await?;
+    info!("DataSource initialized: {}", args_clone.data_source);
 
     // init axum router
     let app_state: AppState = AppState::new(mcp_cache, ds);
