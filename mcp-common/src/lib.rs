@@ -6,6 +6,7 @@ pub mod etcd;
 pub mod http_client;
 pub mod provider;
 pub mod xds;
+pub mod log;
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about)]

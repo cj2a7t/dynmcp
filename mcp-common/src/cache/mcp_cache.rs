@@ -1,10 +1,8 @@
-use anyhow::Result;
 use dashmap::DashMap;
 use std::sync::Arc;
 
 use crate::{
     constants::constants::mcp_cache_consts::{ETCD_IDS_PREFIX, ETCD_TDS_PREFIX},
-    etcd::etcd_client_provider::{EtcdClientProvider, EtcdEventType, EtcdWatchEvent},
     xds::{ids::IDS, tds::TDS},
 };
 
@@ -79,69 +77,5 @@ impl McpCache {
 
     pub fn remove_ids(&self, key: &str) {
         self.ids_map.remove(key);
-    }
-
-    pub async fn start_watch(self: Arc<Self>, etcd: Arc<EtcdClientProvider>) -> Result<()> {
-        // xDS Object: Tool Discovery Service (TDS)
-        let self_tds = Arc::clone(&self);
-        let tds_values = etcd.get_prefix(ETCD_TDS_PREFIX).await?;
-        for (k, v) in tds_values {
-            let tds: TDS = serde_json::from_str(&v)?;
-            self.insert_tds(k, tds);
-        }
-        etcd.watch(ETCD_TDS_PREFIX, move |event: EtcdWatchEvent| {
-            match event.event_type {
-                EtcdEventType::Put => {
-                    if let Some(val_str) = &event.value {
-                        match serde_json::from_str::<TDS>(val_str) {
-                            Ok(tds) => {
-                                self_tds.insert_tds(event.key, tds);
-                            }
-                            Err(err) => {
-                                // TODO
-                                eprintln!("Failed to parse tool JSON: {} => {}", event.key, err);
-                            }
-                        }
-                    }
-                }
-                EtcdEventType::Delete => {
-                    self_tds.remove_tds(&event.key);
-                }
-                _ => {}
-            }
-        })
-        .await?;
-
-        // xDS Object: Instance Discovery Service (IDS)
-        let self_ids = Arc::clone(&self);
-        let etcd_results = etcd.get_prefix(ETCD_IDS_PREFIX).await?;
-        for (k, v) in etcd_results {
-            let ids: IDS = serde_json::from_str(&v)?;
-            self.insert_ids(k, ids);
-        }
-        etcd.watch(ETCD_IDS_PREFIX, move |event: EtcdWatchEvent| {
-            match event.event_type {
-                EtcdEventType::Put => {
-                    if let Some(val_str) = &event.value {
-                        match serde_json::from_str::<IDS>(val_str) {
-                            Ok(ids) => {
-                                self_ids.insert_ids(event.key, ids);
-                            }
-                            Err(err) => {
-                                // TODO
-                                eprintln!("Failed to parse tool JSON: {} => {}", event.key, err);
-                            }
-                        }
-                    }
-                }
-                EtcdEventType::Delete => {
-                    self_ids.remove_ids(&event.key);
-                }
-                _ => {}
-            }
-        })
-        .await?;
-
-        Ok(())
     }
 }
