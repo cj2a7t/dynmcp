@@ -3,8 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use anyhow::{anyhow, Error, Result};
 use mcp_common::{
     cache::mcp_cache::McpCache,
-    provider::global_provider::{init_etcd_global, init_mysql_pool},
-    DynMcpArgs,
+    provider::global_provider::{get_app_config, init_etcd_global, init_mysql_pool},
 };
 
 use crate::datasource::{
@@ -30,24 +29,40 @@ impl FromStr for DataSourceFactory {
 }
 
 impl DataSourceFactory {
-    pub async fn create_data_source_enum(
-        &self,
-        args: DynMcpArgs,
-        mcp_cache: Arc<McpCache>,
-    ) -> Result<Arc<DataSourceEnum>> {
-        match self {
+    pub async fn build(mcp_cache: Arc<McpCache>) -> Result<Arc<DataSourceEnum>> {
+        let config: Arc<mcp_common::config::config::AppConfig> = get_app_config()?;
+        let factory: DataSourceFactory = DataSourceFactory::from_str(&config.app.data_source)?;
+        match factory {
             DataSourceFactory::Etcd => {
-                init_etcd_global(args.etcd_endpoints, args.etcd_username, args.etcd_password)
-                    .await?;
+                let etcd_config = config
+                    .data_source
+                    .etcd
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("Etcd config not found"))?;
+
+                init_etcd_global(
+                    etcd_config.endpoints.clone(),
+                    etcd_config.username.clone(),
+                    etcd_config.password.clone(),
+                )
+                .await?;
+
                 let ds = Arc::new(EtcdDataSource::new(mcp_cache));
                 ds.clone().fetch_and_watch().await?;
                 Ok(Arc::new(DataSourceEnum::Etcd(ds)))
             }
             DataSourceFactory::Mysql => {
-                init_mysql_pool(&args.mysql_url).await?;
+                let mysql_config = config
+                    .data_source
+                    .mysql
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("MySQL config not found"))?;
+
+                init_mysql_pool(&mysql_config.url).await?;
+
                 let ds = Arc::new(MysqlDataSource::new(mcp_cache));
                 ds.clone().fetch_and_watch().await?;
-                Ok(Arc::new(DataSourceEnum::Redis(ds)))
+                Ok(Arc::new(DataSourceEnum::Mysql(ds)))
             }
         }
     }
