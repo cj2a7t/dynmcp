@@ -8,7 +8,7 @@ use crate::datasource::{
 
 pub enum DataSourceEnum {
     Etcd(Arc<EtcdDataSource>),
-    Redis(Arc<MysqlDataSource>),
+    Mysql(Arc<MysqlDataSource>),
 }
 
 #[async_trait]
@@ -18,7 +18,7 @@ impl DataSource for DataSourceEnum {
     async fn fetch_and_watch(self: Arc<Self>) -> Result<()> {
         match self.as_ref() {
             DataSourceEnum::Etcd(ds) => ds.clone().fetch_and_watch().await,
-            DataSourceEnum::Redis(ds) => ds.clone().fetch_and_watch().await,
+            DataSourceEnum::Mysql(ds) => ds.clone().fetch_and_watch().await,
         }
     }
 
@@ -29,7 +29,7 @@ impl DataSource for DataSourceEnum {
     ) -> Result<T, Error> {
         match self.as_ref() {
             DataSourceEnum::Etcd(ds) => ds.clone().put(id, value).await,
-            DataSourceEnum::Redis(ds) => ds.clone().put(id, value).await,
+            DataSourceEnum::Mysql(ds) => ds.clone().put(id, value).await,
         }
     }
 
@@ -39,14 +39,14 @@ impl DataSource for DataSourceEnum {
     ) -> Result<T, Error> {
         match self.as_ref() {
             DataSourceEnum::Etcd(ds) => ds.clone().get(id).await,
-            DataSourceEnum::Redis(ds) => ds.clone().get(id).await,
+            DataSourceEnum::Mysql(ds) => ds.clone().get(id).await,
         }
     }
 
     async fn delete(self: Arc<Self>, id: &str) -> Result<bool, Error> {
         match self.as_ref() {
             DataSourceEnum::Etcd(ds) => ds.clone().delete(id).await,
-            DataSourceEnum::Redis(ds) => ds.clone().delete(id).await,
+            DataSourceEnum::Mysql(ds) => ds.clone().delete(id).await,
         }
     }
 }

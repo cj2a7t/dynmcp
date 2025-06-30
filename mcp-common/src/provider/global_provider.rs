@@ -4,13 +4,14 @@ use sqlx::MySqlPool;
 use std::sync::Arc;
 
 use crate::{
-    etcd::etcd_client_provider::EtcdClientProvider,
+    config::config::AppConfig, etcd::etcd_client_provider::EtcdClientProvider,
     http_client::http_client_provider::HttpClientProvider,
 };
 
 static ETCD_CLIENT: OnceCell<Arc<EtcdClientProvider>> = OnceCell::new();
 static MYSQL_POOL: OnceCell<Arc<MySqlPool>> = OnceCell::new();
 static HTTP_CLIENT: OnceCell<Arc<HttpClientProvider>> = OnceCell::new();
+static CONFIG: OnceCell<Arc<AppConfig>> = OnceCell::new();
 
 pub async fn init_etcd_global(
     etcd_endpoints: Vec<String>,
@@ -56,4 +57,21 @@ pub fn get_http_client() -> Arc<HttpClientProvider> {
         .get()
         .expect("HTTP client not initialized")
         .clone()
+}
+
+pub fn init_app_config() -> Result<()> {
+    let config = Arc::new(AppConfig::load_from_env()?);
+    CONFIG
+        .set(config)
+        .map_err(|_| anyhow!("AppConfig already initialized"))?;
+    Ok(())
+}
+
+pub fn get_app_config() -> Result<Arc<AppConfig>> {
+    CONFIG
+        .get_or_try_init(|| {
+            let config = AppConfig::load_from_env()?;
+            Ok(Arc::new(config))
+        })
+        .map(|arc| arc.clone())
 }
