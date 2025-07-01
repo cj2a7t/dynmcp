@@ -7,6 +7,7 @@ pub struct AppConfig {
     pub app: AppSection,
     pub log: LogSection,
     pub data_source: DataSourceSection,
+    pub api_key: String, // API key for authentication
 }
 
 #[derive(Debug, Deserialize)]
