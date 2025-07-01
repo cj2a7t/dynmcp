@@ -1,5 +1,6 @@
 use crate::{
     error::api_error::RestAPIError,
+    middleware::api_key_auth::ApiKey,
     model::{api_response::RestAPIResponse, app_state::AppState},
 };
 use axum::{
@@ -11,6 +12,7 @@ use mcp_common::xds::{ids::IDS, tds::TDS};
 use mcp_plugin::datasource::datasource::DataSource;
 
 pub async fn handle_put_tds(
+    _api_key: ApiKey,
     State(state): State<AppState>,
     Json(tds): Json<TDS>,
 ) -> Result<impl IntoResponse, RestAPIError> {
@@ -24,6 +26,7 @@ pub async fn handle_put_tds(
 }
 
 pub async fn handle_get_tds(
+    _api_key: ApiKey,
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, RestAPIError> {
@@ -36,6 +39,7 @@ pub async fn handle_get_tds(
 }
 
 pub async fn handle_del_tds(
+    _api_key: ApiKey,
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, RestAPIError> {
@@ -50,6 +54,7 @@ pub async fn handle_del_tds(
 }
 
 pub async fn handle_put_ids(
+    _api_key: ApiKey,
     State(state): State<AppState>,
     Json(ids): Json<IDS>,
 ) -> Result<impl IntoResponse, RestAPIError> {
@@ -63,6 +68,7 @@ pub async fn handle_put_ids(
 }
 
 pub async fn handle_get_ids(
+    _api_key: ApiKey,
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, RestAPIError> {
@@ -75,6 +81,7 @@ pub async fn handle_get_ids(
 }
 
 pub async fn handle_del_ids(
+    _api_key: ApiKey,
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, RestAPIError> {

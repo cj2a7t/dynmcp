@@ -16,6 +16,7 @@ mod error;
 mod handler;
 mod model;
 mod router;
+mod middleware;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -36,7 +37,7 @@ async fn main() -> Result<()> {
     info!("DataSource initialized: {:?}", config.data_source);
 
     // init axum router
-    let app_state: AppState = AppState::new(mcp_cache, ds);
+    let app_state: AppState = AppState::new(mcp_cache, ds, config.clone());
     let router: axum::Router = create_router(app_state);
 
     // axum start
