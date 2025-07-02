@@ -1,4 +1,4 @@
-use std::{any::TypeId, sync::Arc};
+use std::sync::Arc;
 
 use crate::datasource::datasource::DataSource;
 use anyhow::{anyhow, Result};
@@ -14,33 +14,34 @@ use sqlx::FromRow;
 
 /// Represents a row in the `dynmcp_xds` table.
 ///
-/// MySQL Table Definition:
+/// ### MySQL Table Structure
 /// ```sql
 /// CREATE TABLE IF NOT EXISTS dynmcp_xds (
 ///     id BIGINT PRIMARY KEY AUTO_INCREMENT,
 ///     `key` VARCHAR(255) NOT NULL UNIQUE,
 ///     xds_type VARCHAR(64) NOT NULL,
 ///     xds_json TEXT NOT NULL,
+///     status ENUM('pending', 'syncing', 'synced') NOT NULL DEFAULT 'pending',
 ///     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 ///     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 /// ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 /// ```
 ///
-/// Field meanings:
-/// - `id`: Auto-increment primary key.
-/// - `key`: Unique key used to identify an XDS object (e.g., service ID).
-/// - `xds_type`: Type of the XDS object (e.g., TDS, IDS, CDS, etc).
-/// - `xds_json`: Serialized JSON content of the XDS object.
-/// - `create_time`: Time when the record was created (auto-filled by DB).
-/// - `update_time`: Time when the record was last updated (auto-updated on modification).
-
-/// XDS database record structure mapped to the `mcp_data` table.
+/// ### Field Descriptions
+/// - **`id`**: Auto-increment primary key.
+/// - **`key`**: Unique identifier for the XDS object (e.g., service ID).
+/// - **`xds_type`**: Type of the XDS object (e.g., `TDS`, `IDS`, `CDS`, etc.).
+/// - **`xds_json`**: Serialized JSON representation of the XDS object.
+/// - **`status`**: Synchronization status: `pending`, `syncing`, or `synced`.
+/// - **`create_time`**: Timestamp when the record was created.
+/// - **`update_time`**: Timestamp when the record was last updated.
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct XDSRecord {
     pub id: i64,
     pub key: String,
     pub xds_type: String,
     pub xds_json: String,
+    pub status: String,
     pub create_time: NaiveDateTime,
     pub update_time: NaiveDateTime,
 }
@@ -53,58 +54,109 @@ impl MysqlDataSource {
     pub fn new(mcp_cache: Arc<McpCache>) -> Self {
         Self { mcp_cache }
     }
+    async fn insert_into_cache(&self, record: &XDSRecord) -> bool {
+        match record.xds_type.as_str() {
+            "TDS" => match serde_json::from_str::<TDS>(&record.xds_json) {
+                Ok(tds) => {
+                    self.mcp_cache.insert_tds(record.key.clone(), tds);
+                    true
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to parse TDS from record {}: {}", record.key, e);
+                    false
+                }
+            },
+            "IDS" => match serde_json::from_str::<IDS>(&record.xds_json) {
+                Ok(ids) => {
+                    self.mcp_cache.insert_ids(record.key.clone(), ids);
+                    true
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to parse IDS from record {}: {}", record.key, e);
+                    false
+                }
+            },
+            other => {
+                tracing::warn!("Unknown xds_type `{}` for key {}", other, record.key);
+                false
+            }
+        }
+    }
 }
 
 #[async_trait]
 impl DataSource for MysqlDataSource {
     async fn fetch_and_watch(self: Arc<Self>) -> Result<()> {
         let pool = get_mysql_pool();
-        let mut offset: i64 = 0;
         const PAGE_SIZE: i64 = 100;
+
+        // Initial full load
+        {
+            let mut offset: i64 = 0;
+            loop {
+                let rows: Vec<XDSRecord> = sqlx::query_as::<_, XDSRecord>(
+                    r#"
+                    SELECT id, `key`, xds_type, xds_json, status, create_time, update_time
+                    FROM dynmcp_xds
+                    ORDER BY id ASC
+                    LIMIT ? OFFSET ?
+                    "#,
+                )
+                .bind(PAGE_SIZE)
+                .bind(offset)
+                .fetch_all(&*pool)
+                .await?;
+
+                if rows.is_empty() {
+                    break;
+                }
+
+                for record in rows {
+                    self.insert_into_cache(&record).await;
+                }
+
+                offset += PAGE_SIZE;
+            }
+        }
+
+        // Watch for pending
         loop {
-            let rows: Vec<XDSRecord> = sqlx::query_as::<_, XDSRecord>(
+            let pending_rows: Vec<XDSRecord> = sqlx::query_as::<_, XDSRecord>(
                 r#"
-                SELECT * FROM mcp_data
+                SELECT id, `key`, xds_type, xds_json, status, create_time, update_time
+                FROM dynmcp_xds
+                WHERE status = 'pending'
                 ORDER BY id ASC
-                LIMIT ? OFFSET ?
+                LIMIT ?
                 "#,
             )
             .bind(PAGE_SIZE)
-            .bind(offset)
             .fetch_all(&*pool)
             .await?;
 
-            if rows.is_empty() {
-                break;
+            if pending_rows.is_empty() {
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                continue;
             }
 
-            for record in rows {
-                match record.xds_type.as_str() {
-                    "TDS" => match serde_json::from_str::<TDS>(&record.xds_json) {
-                        Ok(tds) => {
-                            self.mcp_cache.insert_tds(record.key.clone(), tds);
-                        }
-                        Err(e) => {
-                            tracing::warn!("Failed to parse TDS from record {}: {}", record.key, e);
-                        }
-                    },
-                    "IDS" => match serde_json::from_str::<IDS>(&record.xds_json) {
-                        Ok(ids) => {
-                            self.mcp_cache.insert_ids(record.key.clone(), ids);
-                        }
-                        Err(e) => {
-                            tracing::warn!("Failed to parse IDS from record {}: {}", record.key, e);
-                        }
-                    },
-                    other => {
-                        tracing::warn!("Unknown xds_type `{}` for key {}", other, record.key);
-                    }
-                }
+            for record in &pending_rows {
+                sqlx::query("UPDATE dynmcp_xds SET status = 'syncing' WHERE id = ?")
+                    .bind(record.id)
+                    .execute(&*pool)
+                    .await?;
             }
 
-            offset += PAGE_SIZE;
+            for record in pending_rows {
+                let ok = self.insert_into_cache(&record).await;
+                let new_status = if ok { "synced" } else { "pending" };
+
+                sqlx::query("UPDATE dynmcp_xds SET status = ? WHERE id = ?")
+                    .bind(new_status)
+                    .bind(record.id)
+                    .execute(&*pool)
+                    .await?;
+            }
         }
-        Ok(())
     }
 
     async fn put<T>(self: Arc<Self>, id: &str, value: &T) -> Result<T>
@@ -122,8 +174,8 @@ impl DataSource for MysqlDataSource {
 
         sqlx::query(
             r#"
-            INSERT INTO mcp_data (`key`, xds_type, xds_json, create_time, update_time)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO dynmcp_xds (`key`, xds_type, xds_json, create_time, update_time, status)
+            VALUES (?, ?, ?, ?, ?, 'pending')
             ON DUPLICATE KEY UPDATE
                 xds_type = VALUES(xds_type),
                 xds_json = VALUES(xds_json),
@@ -138,17 +190,6 @@ impl DataSource for MysqlDataSource {
         .execute(&*pool)
         .await?;
 
-        let key = id.to_string();
-        if TypeId::of::<T>() == TypeId::of::<TDS>() {
-            let tds: TDS = serde_json::from_str(&value_json).unwrap();
-            self.mcp_cache.insert_tds(key, tds);
-        } else if TypeId::of::<T>() == TypeId::of::<IDS>() {
-            let ids: IDS = serde_json::from_str(&value_json).unwrap();
-            self.mcp_cache.insert_ids(key, ids);
-        } else {
-            tracing::warn!("Unsupported type in put(): {}", xds_type);
-        }
-
         Ok(value.clone())
     }
 
@@ -159,7 +200,7 @@ impl DataSource for MysqlDataSource {
         let pool = get_mysql_pool();
 
         let record: Option<XDSRecord> =
-            sqlx::query_as::<_, XDSRecord>("SELECT * FROM mcp_data WHERE `key` = ?")
+            sqlx::query_as::<_, XDSRecord>("SELECT id, `key`, xds_type, xds_json, status, create_time, update_time FROM dynmcp_xds WHERE `key` = ?")
                 .bind(id)
                 .fetch_optional(&*pool)
                 .await?;
@@ -178,22 +219,16 @@ impl DataSource for MysqlDataSource {
         let pool = get_mysql_pool();
 
         let record: Option<(String,)> =
-            sqlx::query_as("SELECT xds_type FROM mcp_data WHERE `key` = ?")
+            sqlx::query_as("SELECT xds_type FROM dynmcp_xds WHERE `key` = ?")
                 .bind(id)
                 .fetch_optional(&*pool)
                 .await?;
 
-        if let Some((xds_type,)) = record {
-            let result = sqlx::query("DELETE FROM mcp_data WHERE `key` = ?")
+        if let Some((_xds_type,)) = record {
+            let result = sqlx::query("DELETE FROM dynmcp_xds WHERE `key` = ?")
                 .bind(id)
                 .execute(&*pool)
                 .await?;
-            let key = id.to_string();
-            match xds_type.as_str() {
-                "TDS" => self.mcp_cache.remove_tds(&key),
-                "IDS" => self.mcp_cache.remove_ids(&key),
-                _ => tracing::warn!("Unknown xds_type `{}` for key {}", xds_type, key),
-            }
             Ok(result.rows_affected() > 0)
         } else {
             Ok(false)
