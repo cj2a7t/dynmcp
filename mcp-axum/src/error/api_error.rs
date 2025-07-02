@@ -33,6 +33,13 @@ impl RestAPIError {
             status: StatusCode::BAD_REQUEST,
         }
     }
+
+    pub fn unauthorized<E: Into<Error>>(err: E) -> Self {
+    Self {
+        error: err.into(),
+        status: StatusCode::UNAUTHORIZED,
+    }
+}
 }
 
 impl<E: Into<Error>> From<E> for RestAPIError {
