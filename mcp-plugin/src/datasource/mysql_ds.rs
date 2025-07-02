@@ -11,6 +11,7 @@ use mcp_common::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use tracing::{debug, info, warn};
 
 /// Represents a row in the `dynmcp_xds` table.
 ///
@@ -91,55 +92,68 @@ impl DataSource for MysqlDataSource {
         const PAGE_SIZE: i64 = 100;
 
         // Initial full load
-        {
-            let mut offset: i64 = 0;
-            loop {
-                let rows: Vec<XDSRecord> = sqlx::query_as::<_, XDSRecord>(
-                    r#"
-                    SELECT id, `key`, xds_type, xds_json, status, create_time, update_time
-                    FROM dynmcp_xds
-                    ORDER BY id ASC
-                    LIMIT ? OFFSET ?
-                    "#,
-                )
-                .bind(PAGE_SIZE)
-                .bind(offset)
-                .fetch_all(&*pool)
-                .await?;
+        info!("🔄 Starting initial full load of XDS records...");
 
-                if rows.is_empty() {
-                    break;
-                }
+        let mut offset: i64 = 0;
+        loop {
+            let rows: Vec<XDSRecord> = sqlx::query_as::<_, XDSRecord>(
+                r#"
+            SELECT id, `key`, xds_type, xds_json, status, create_time, update_time
+            FROM dynmcp_xds
+            ORDER BY id ASC
+            LIMIT ? OFFSET ?
+            "#,
+            )
+            .bind(PAGE_SIZE)
+            .bind(offset)
+            .fetch_all(&*pool)
+            .await?;
 
-                for record in rows {
-                    self.insert_into_cache(&record).await;
-                }
-
-                offset += PAGE_SIZE;
+            if rows.is_empty() {
+                info!("✅ Initial load completed.");
+                break;
             }
+
+            debug!("📄 Loaded {} records (offset = {})", rows.len(), offset);
+
+            for record in &rows {
+                debug!(
+                    "📥 Inserting record into cache: id = {}, key = {}",
+                    record.id, record.key
+                );
+                self.insert_into_cache(record).await;
+            }
+
+            offset += PAGE_SIZE;
         }
 
         // Watch for pending
+        info!("👀 Entering watch loop for pending XDS records...");
+
         loop {
             let pending_rows: Vec<XDSRecord> = sqlx::query_as::<_, XDSRecord>(
                 r#"
-                SELECT id, `key`, xds_type, xds_json, status, create_time, update_time
-                FROM dynmcp_xds
-                WHERE status = 'pending'
-                ORDER BY id ASC
-                LIMIT ?
-                "#,
+            SELECT id, `key`, xds_type, xds_json, status, create_time, update_time
+            FROM dynmcp_xds
+            WHERE status = 'pending'
+            ORDER BY id ASC
+            LIMIT ?
+            "#,
             )
             .bind(PAGE_SIZE)
             .fetch_all(&*pool)
             .await?;
 
             if pending_rows.is_empty() {
+                debug!("⏸ No pending records found, sleeping 5s...");
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                 continue;
             }
 
+            info!("🔄 Found {} pending records", pending_rows.len());
+
             for record in &pending_rows {
+                debug!("🔃 Marking record as syncing: id = {}", record.id);
                 sqlx::query("UPDATE dynmcp_xds SET status = 'syncing' WHERE id = ?")
                     .bind(record.id)
                     .execute(&*pool)
@@ -147,8 +161,21 @@ impl DataSource for MysqlDataSource {
             }
 
             for record in pending_rows {
+                debug!(
+                    "📥 Syncing record into cache: id = {}, key = {}",
+                    record.id, record.key
+                );
                 let ok = self.insert_into_cache(&record).await;
                 let new_status = if ok { "synced" } else { "pending" };
+
+                if ok {
+                    info!("✅ Synced record: id = {}, key = {}", record.id, record.key);
+                } else {
+                    warn!(
+                        "⚠️ Failed to sync record, resetting to pending: id = {}, key = {}",
+                        record.id, record.key
+                    );
+                }
 
                 sqlx::query("UPDATE dynmcp_xds SET status = ? WHERE id = ?")
                     .bind(new_status)

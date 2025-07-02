@@ -7,7 +7,6 @@ pub struct AppConfig {
     pub app: AppSection,
     pub log: LogSection,
     pub data_source: DataSourceSection,
-    pub api_key: String, // API key for authentication
 }
 
 #[derive(Debug, Deserialize)]
@@ -15,6 +14,7 @@ pub struct AppSection {
     pub host: String,
     pub port: u16,
     pub data_source: String, // e.g., "mysql" or "etcd"
+    pub api_key: String,     // API key for authentication
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,7 +45,7 @@ pub struct EtcdConfig {
 impl AppConfig {
     pub fn load_from_env() -> Result<Self> {
         let config_dir = std::env::var("CONFIG_DIR").unwrap_or_else(|_| "config".into());
-        let run_mode = std::env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
+        let run_mode = std::env::var("RUN_MODE").unwrap_or_else(|_| "dev".into());
 
         let builder = Config::builder()
             .add_source(File::with_name(&format!("{}/default", config_dir)))

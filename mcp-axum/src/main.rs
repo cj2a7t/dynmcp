@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
-use anyhow::{Ok, Result, anyhow};
+use anyhow::{anyhow, Ok, Result};
 use mcp_common::{
-    cache::mcp_cache::McpCache,
-    log::log::init_logging,
-    provider::global_provider::{get_app_config},
+    cache::mcp_cache::McpCache, log::log::init_logging, provider::global_provider::get_app_config,
 };
 use mcp_plugin::datasource::factory::DataSourceFactory;
 use tokio::net::TcpListener;
@@ -14,9 +12,9 @@ use crate::{model::app_state::AppState, router::router::create_router};
 
 mod error;
 mod handler;
+mod middleware;
 mod model;
 mod router;
-mod middleware;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -42,6 +40,7 @@ async fn main() -> Result<()> {
 
     // axum start
     let addr = format!("{}:{}", config.app.host, config.app.port);
+    info!("🚀 Starting Dynmcp HTTP server at http://{}", addr);
     let listener: TcpListener = TcpListener::bind(addr).await?;
     axum::serve(listener, router).await?;
 

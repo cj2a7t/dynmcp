@@ -48,7 +48,12 @@ impl DataSourceFactory {
                 .await?;
 
                 let ds = Arc::new(EtcdDataSource::new(mcp_cache));
-                ds.clone().fetch_and_watch().await?;
+                let ds_clone = ds.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = ds_clone.fetch_and_watch().await {
+                        tracing::error!("ETCD fetch_and_watch failed: {:?}", e);
+                    }
+                });
                 Ok(Arc::new(DataSourceEnum::Etcd(ds)))
             }
             DataSourceFactory::Mysql => {
@@ -61,7 +66,12 @@ impl DataSourceFactory {
                 init_mysql_pool(&mysql_config.url).await?;
 
                 let ds = Arc::new(MysqlDataSource::new(mcp_cache));
-                ds.clone().fetch_and_watch().await?;
+                let ds_clone = ds.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = ds_clone.fetch_and_watch().await {
+                        tracing::error!("MySQL fetch_and_watch failed: {:?}", e);
+                    }
+                });
                 Ok(Arc::new(DataSourceEnum::Mysql(ds)))
             }
         }
