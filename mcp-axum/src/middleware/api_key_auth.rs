@@ -15,7 +15,7 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let config = state.as_ref().config.clone();
-        let expected_api_key = &config.api_key;
+        let expected_api_key = &config.app.api_key;
         let actual_key = parts
             .headers
             .get(API_KEY_HEADER)
