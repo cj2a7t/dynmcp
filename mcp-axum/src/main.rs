@@ -12,7 +12,7 @@ use crate::{model::app_state::AppState, router::router::create_router};
 
 mod error;
 mod handler;
-mod middleware;
+mod extractor;
 mod model;
 mod router;
 

@@ -1,21 +1,29 @@
 use crate::{
     error::api_error::RestAPIError,
-    middleware::api_key_auth::ApiKey,
-    model::{api_response::RestAPIResponse, app_state::AppState},
+    extractor::{api_key_auth::ApiKey, json_bdoy::ValidatedJson},
+    model::{
+        api_response::RestAPIResponse,
+        app_state::AppState,
+        vo::{
+            ids_cmd::{IDSCmd, IntoIDS},
+            tds_cmd::{IntoTDS, TDSCmd},
+        },
+    },
 };
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
-    Json,
 };
 use mcp_common::xds::{ids::IDS, tds::TDS};
 use mcp_plugin::datasource::datasource::DataSource;
 
 pub async fn handle_put_tds(
-    _api_key: ApiKey,
     State(state): State<AppState>,
-    Json(tds): Json<TDS>,
+    _api_key: ApiKey,
+    Path(tds_id): Path<String>,
+    ValidatedJson(tds_cmd): ValidatedJson<TDSCmd>,
 ) -> Result<impl IntoResponse, RestAPIError> {
+    let tds = tds_cmd.into_tds(tds_id);
     tds.validate().map_err(RestAPIError::bad_request)?;
     state
         .data_source
@@ -26,8 +34,8 @@ pub async fn handle_put_tds(
 }
 
 pub async fn handle_get_tds(
-    _api_key: ApiKey,
     State(state): State<AppState>,
+    _api_key: ApiKey,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, RestAPIError> {
     let tds = state
@@ -39,8 +47,8 @@ pub async fn handle_get_tds(
 }
 
 pub async fn handle_del_tds(
-    _api_key: ApiKey,
     State(state): State<AppState>,
+    _api_key: ApiKey,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, RestAPIError> {
     let res = state
@@ -54,11 +62,12 @@ pub async fn handle_del_tds(
 }
 
 pub async fn handle_put_ids(
-    _api_key: ApiKey,
     State(state): State<AppState>,
-    Json(ids): Json<IDS>,
+    _api_key: ApiKey,
+    Path(ids_id): Path<String>,
+    ValidatedJson(ids_cmd): ValidatedJson<IDSCmd>,
 ) -> Result<impl IntoResponse, RestAPIError> {
-    ids.validate().map_err(RestAPIError::bad_request)?;
+    let ids = ids_cmd.into_ids(ids_id);
     state
         .data_source
         .put(&ids.id, &ids)
@@ -68,8 +77,8 @@ pub async fn handle_put_ids(
 }
 
 pub async fn handle_get_ids(
-    _api_key: ApiKey,
     State(state): State<AppState>,
+    _api_key: ApiKey,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, RestAPIError> {
     let ids = state
@@ -81,8 +90,8 @@ pub async fn handle_get_ids(
 }
 
 pub async fn handle_del_ids(
-    _api_key: ApiKey,
     State(state): State<AppState>,
+    _api_key: ApiKey,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, RestAPIError> {
     let res = state
