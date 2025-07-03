@@ -6,3 +6,4 @@ pub mod provider;
 pub mod xds;
 pub mod log;
 pub mod config;
+pub mod model;
