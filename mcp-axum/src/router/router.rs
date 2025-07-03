@@ -19,7 +19,7 @@ pub fn create_router(app_state: AppState) -> Router {
             "/admin/ids/{ids_id}",
             get(admin_handler::handle_get_ids).delete(admin_handler::handle_del_ids),
         )
-        .route("/admin/tds", put(admin_handler::handle_put_tds))
-        .route("/admin/ids", put(admin_handler::handle_put_ids))
+        .route("/admin/tds/{tds_id}", put(admin_handler::handle_put_tds))
+        .route("/admin/ids/{ids_id}", put(admin_handler::handle_put_ids))
         .with_state(app_state)
 }
