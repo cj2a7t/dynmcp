@@ -18,3 +18,4 @@ anyhow = { workspace = true }
 serde_json = { workspace = true }
 erased-serde = { workspace = true }
 async-trait = { workspace = true }
+thiserror = { workspace = true }

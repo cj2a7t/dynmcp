@@ -4,6 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use mcp_core::error::dyn_execute_error::DynExecuteError;
 use serde_json::json;
 
 #[derive(Debug)]
@@ -35,11 +36,20 @@ impl RestAPIError {
     }
 
     pub fn unauthorized<E: Into<Error>>(err: E) -> Self {
-    Self {
-        error: err.into(),
-        status: StatusCode::UNAUTHORIZED,
+        Self {
+            error: err.into(),
+            status: StatusCode::UNAUTHORIZED,
+        }
     }
-}
+
+    pub fn for_json_rpc(err: DynExecuteError) -> Self {
+        let status = StatusCode::from_u16(err.status().as_u16())
+            .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        Self {
+            error: err.into(),
+            status,
+        }
+    }
 }
 
 impl<E: Into<Error>> From<E> for RestAPIError {

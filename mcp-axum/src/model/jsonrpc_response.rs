@@ -4,7 +4,6 @@ use axum::{
 };
 use serde::Serialize;
 
-
 pub struct JSONRpcResponse<T> {
     pub status: StatusCode,
     pub body: T,
@@ -22,6 +21,10 @@ impl<T> JSONRpcResponse<T> {
         Self { status, body }
     }
 
+    pub fn with_u16_status(u16_status: u16, body: T) -> Self {
+        let status = StatusCode::from_u16(u16_status).unwrap_or(StatusCode::OK);
+        Self { status, body }
+    }
 }
 
 impl<T> From<T> for JSONRpcResponse<T> {

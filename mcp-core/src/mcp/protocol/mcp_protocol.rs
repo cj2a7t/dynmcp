@@ -8,6 +8,8 @@ use mcp_common::cache::mcp_cache::McpCache;
 use once_cell::sync::Lazy;
 use serde_json::Value;
 
+use crate::error::dyn_execute_error::DynExecuteError;
+
 static REGISTRY: Lazy<DashMap<String, Arc<dyn DynMCProtocol>>> = Lazy::new(DashMap::new);
 
 #[derive(Debug)]
@@ -103,46 +105,52 @@ pub fn get_protocol(method: &str) -> Option<Arc<dyn DynMCProtocol>> {
 /// Executes a registered JSON-RPC method with a dynamically typed response.
 ///
 /// This function is designed for dynamic dispatch contexts, such as HTTP servers,
-/// where the exact response type isn't known at compile time. The response is returned as
-/// a boxed `dyn ErasedSerialize`, which allows type-erased serialization (e.g., to JSON).
+/// where the exact response type isn't known at compile time. It returns a dynamically
+/// dispatched boxed response (`dyn ErasedSerialize`) along with a `Responsex` object
+/// that contains metadata such as HTTP status and processing time.
 ///
-/// It also returns a `Responsex` containing metadata such as HTTP status and processing time.
+/// The request must include a `"method"` field to route to the appropriate protocol implementation.
 ///
 /// # Parameters
 /// - `jsonrpc_request`: A JSON value representing the JSON-RPC request. Must contain a `"method"` field.
-/// - `_reqx`: A reference to the contextual `Requestx`, including shared resources like `McpCache`.
+/// - `_reqx`: A reference to contextual information (`Requestx`), such as shared resources like `McpCache`.
 ///
 /// # Returns
-/// - `Ok(Some(DynExecuteResult))` if the method is found and executed successfully.
-/// - `Ok(None)` if the method is not found or request casting fails.
-/// - `Err(_)` if an internal error occurs.
+/// - `Ok(DynExecuteResult)` if the method is found, the request is valid, and the protocol call succeeds.
+/// - `Err(DynExecuteError)` if the method is missing, unsupported, the request format is invalid,
+///   or an internal error occurs during execution.
 ///
-/// # Example
-/// ```rust
-/// if let Some(result) = execute_dyn(req, &cache).await? {
-///     tracing::info!("Took {}ms", result.respx.elapsed_ms);
-///     let json = serde_json::to_string(&result.response)?;
-/// }
+/// # Errors
+/// Returns a [`DynExecuteError`] with appropriate status and message when:
+/// - The `"method"` field is missing.
+/// - The method is unsupported (not registered).
+/// - The request format doesn't match the protocol's expected input.
+/// - The underlying protocol execution fails.
 /// ```
 pub async fn execute_dyn(
     jsonrpc_request: Value,
     _reqx: &Requestx<'_>,
-) -> Result<Option<DynExecuteResult>> {
-    let method = match jsonrpc_request.get("method").and_then(|v| v.as_str()) {
-        Some(m) => m,
-        None => return Ok(None),
-    };
+) -> Result<DynExecuteResult, DynExecuteError> {
+    // exectract the method from the JSON-RPC request
+    let method = jsonrpc_request
+        .get("method")
+        .and_then(|v| v.as_str())
+        .ok_or(DynExecuteError::MissingMethod)?;
 
-    let strat: Arc<dyn DynMCProtocol> = match get_protocol(method) {
-        Some(s) => s,
-        None => return Ok(None),
-    };
+    // get the protocol strategy based on the method
+    let strat: Arc<dyn DynMCProtocol> = get_protocol(method)
+        .ok_or_else(|| DynExecuteError::UnsupportedMethod(method.to_string()))?;
 
-    let req = match strat.cast_boxed(&jsonrpc_request) {
-        Ok(r) => r,
-        Err(_) => return Ok(None),
-    };
+    // cast the JSON-RPC request to the protocol's request type
+    let req = strat
+        .cast_boxed(&jsonrpc_request)
+        .map_err(|_| DynExecuteError::InvalidRequest)?;
 
-    let (response, respx) = strat.call_boxed_erased(req, _reqx).await?;
-    Ok(Some(DynExecuteResult { response, respx }))
+    // call the protocol's method with the request
+    let (response, respx) = strat
+        .call_boxed_erased(req, _reqx)
+        .await
+        .map_err(DynExecuteError::ExecutionError)?;
+
+    Ok(DynExecuteResult { response, respx })
 }
