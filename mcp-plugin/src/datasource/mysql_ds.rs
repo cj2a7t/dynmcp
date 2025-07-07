@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{any::type_name, sync::Arc};
 
 use crate::datasource::datasource::DataSource;
 use anyhow::{anyhow, Result};
@@ -260,5 +260,45 @@ impl DataSource for MysqlDataSource {
         } else {
             Ok(false)
         }
+    }
+
+    async fn get_all<T>(self: Arc<Self>) -> Result<Vec<T>>
+    where
+        T: for<'de> serde::Deserialize<'de>,
+    {
+        let full_type = type_name::<T>();
+        let short_type = full_type
+            .rsplit("::")
+            .next()
+            .ok_or_else(|| anyhow!("Failed to extract type name from: {}", full_type))?;
+
+        let pool = get_mysql_pool();
+
+        let rows: Vec<XDSRecord> = sqlx::query_as::<_, XDSRecord>(
+            r#"
+            SELECT id, `key`, xds_type, xds_json, status, create_time, update_time
+            FROM dynmcp_xds
+            WHERE xds_type = ?
+            ORDER BY id ASC
+            "#,
+        )
+        .bind(short_type)
+        .fetch_all(&*pool)
+        .await?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            match serde_json::from_str::<T>(&row.xds_json) {
+                Ok(xds) => result.push(xds),
+                Err(e) => {
+                    warn!(
+                        "Failed to deserialize xds_json for key {} into type {}: {}",
+                        row.key, short_type, e
+                    );
+                }
+            }
+        }
+
+        Ok(result)
     }
 }

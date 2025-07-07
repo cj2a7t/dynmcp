@@ -46,6 +46,18 @@ pub async fn handle_get_tds(
     Ok(RestAPIResponse::success(tds))
 }
 
+pub async fn handle_get_all_tds(
+    State(state): State<AppState>,
+    _api_key: ApiKey,
+) -> Result<impl IntoResponse, RestAPIError> {
+    let list = state
+        .data_source
+        .get_all::<TDS>()
+        .await
+        .map_err(RestAPIError::internal)?;
+    Ok(RestAPIResponse::success(list))
+}
+
 pub async fn handle_del_tds(
     State(state): State<AppState>,
     _api_key: ApiKey,
@@ -102,4 +114,16 @@ pub async fn handle_del_ids(
     Ok(RestAPIResponse::success(format!(
         "IDS `{id}` delete result: {res}"
     )))
+}
+
+pub async fn handle_get_all_ids(
+    State(state): State<AppState>,
+    _api_key: ApiKey,
+) -> Result<impl IntoResponse, RestAPIError> {
+    let list = state
+        .data_source
+        .get_all::<IDS>()
+        .await
+        .map_err(RestAPIError::internal)?;
+    Ok(RestAPIResponse::success(list))
 }

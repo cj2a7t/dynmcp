@@ -13,8 +13,6 @@ pub enum DataSourceEnum {
 
 #[async_trait]
 impl DataSource for DataSourceEnum {
-
-
     async fn fetch_and_watch(self: Arc<Self>) -> Result<()> {
         match self.as_ref() {
             DataSourceEnum::Etcd(ds) => ds.clone().fetch_and_watch().await,
@@ -47,6 +45,16 @@ impl DataSource for DataSourceEnum {
         match self.as_ref() {
             DataSourceEnum::Etcd(ds) => ds.clone().delete(id).await,
             DataSourceEnum::Mysql(ds) => ds.clone().delete(id).await,
+        }
+    }
+
+    async fn get_all<T>(self: Arc<Self>) -> Result<Vec<T>>
+    where
+        T: for<'de> serde::Deserialize<'de>,
+    {
+        match self.as_ref() {
+            DataSourceEnum::Etcd(ds) => ds.clone().get_all().await,
+            DataSourceEnum::Mysql(ds) => ds.clone().get_all().await,
         }
     }
 }
