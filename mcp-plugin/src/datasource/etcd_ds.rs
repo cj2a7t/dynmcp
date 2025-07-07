@@ -105,4 +105,27 @@ impl DataSource for EtcdDataSource {
         let etcd = get_etcd();
         etcd.delete(id).await
     }
+
+    async fn get_all<T>(self: Arc<Self>) -> Result<Vec<T>>
+    where
+        T: for<'de> serde::Deserialize<'de>,
+    {
+        let etcd = get_etcd();
+        // Determine prefix based on type name
+        let type_name = std::any::type_name::<T>();
+        let prefix = if type_name.contains("TDS") {
+            ETCD_TDS_PREFIX
+        } else if type_name.contains("IDS") {
+            ETCD_IDS_PREFIX
+        } else {
+            return Err(anyhow!("Unsupported type for get_all: {}", type_name));
+        };
+        let pairs = etcd.get_prefix(prefix).await?;
+        let mut result = Vec::new();
+        for (_k, v) in pairs {
+            let item: T = serde_json::from_str(&v)?;
+            result.push(item);
+        }
+        Ok(result)
+    }
 }

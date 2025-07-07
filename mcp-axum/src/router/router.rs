@@ -21,5 +21,7 @@ pub fn create_router(app_state: AppState) -> Router {
         )
         .route("/admin/tds/{tds_id}", put(admin_handler::handle_put_tds))
         .route("/admin/ids/{ids_id}", put(admin_handler::handle_put_ids))
+        .route("/admin/tds", get(admin_handler::handle_get_all_tds))
+        .route("/admin/ids", get(admin_handler::handle_get_all_ids))
         .with_state(app_state)
 }

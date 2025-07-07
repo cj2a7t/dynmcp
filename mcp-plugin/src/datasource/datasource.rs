@@ -15,4 +15,8 @@ pub trait DataSource {
         T: for<'de> serde::Deserialize<'de>;
 
     async fn delete(self: Arc<Self>, id: &str) -> Result<bool>;
+
+    async fn get_all<T>(self: Arc<Self>) -> Result<Vec<T>>
+    where
+        T: for<'de> serde::Deserialize<'de>;
 }
