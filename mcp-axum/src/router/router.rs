@@ -1,16 +1,21 @@
 use axum::{
-    routing::{get, put},
+    routing::{get, post, put},
     Router,
 };
 
 use crate::{
-    handler::{admin_handler, mcp_handler},
+    handler::{admin_handler, healthz_handler, mcp_handler},
     model::app_state::AppState,
 };
 
 pub fn create_router(app_state: AppState) -> Router {
     Router::new()
-        .route("/mcp/{instance_id}", get(mcp_handler::handle_message))
+        // Data Plane
+        // TODO Stream[able] Http
+        .route("/mcp/{instance_id}", post(mcp_handler::handle_message))
+        // health check
+        .route("/healthz", get(healthz_handler::healthz))
+        // Control Plane
         .route(
             "/admin/tds/{tds_id}",
             get(admin_handler::handle_get_tds).delete(admin_handler::handle_del_tds),

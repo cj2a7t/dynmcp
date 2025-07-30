@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use mcp_common::{
     http_client::model::HttpRequestOptions, provider::global_provider::get_http_client,
@@ -33,8 +33,7 @@ impl MCProtocol for CallToolProtocol {
         let tds = reqx
             .mcp_cache
             .get_tds_by_name(&req.params.name)
-            .or(None)
-            .expect("Tool not found in cache");
+            .ok_or_else(|| anyhow!("TDS not found for name: {}", &req.params.name))?;
 
         // call API
         let tds_ext_info = tds.tds_ext_info;
