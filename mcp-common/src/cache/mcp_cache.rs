@@ -1,10 +1,8 @@
 use dashmap::DashMap;
 use std::sync::Arc;
+use tracing::debug;
 
-use crate::{
-    constants::constants::mcp_cache_consts::{ETCD_IDS_PREFIX, ETCD_TDS_PREFIX},
-    xds::{ids::IDS, tds::TDS},
-};
+use crate::xds::{ids::IDS, tds::TDS};
 
 #[derive(Clone)]
 pub struct McpCache {
@@ -26,8 +24,7 @@ impl McpCache {
     }
 
     pub fn get_tds(&self, id: &str) -> Option<TDS> {
-        let key = format!("{}{}", ETCD_TDS_PREFIX, id);
-        self.tds_map.get(&key).map(|v| v.value().clone())
+        self.tds_map.get(id).map(|v| v.value().clone())
     }
 
     pub fn get_tds_by_name(&self, name: &str) -> Option<TDS> {
@@ -59,8 +56,8 @@ impl McpCache {
     }
 
     pub fn list_tds_by_ids_id(&self, ids_id: &str) -> Vec<TDS> {
-        let key = format!("{}{}", ETCD_IDS_PREFIX, ids_id);
-        self.ids_map.get(&key).map_or_else(
+        debug!(?self.ids_map, "Full ids_map before lookup");
+        self.ids_map.get(ids_id).map_or_else(
             || vec![],
             |ids| {
                 ids.tool_ids
@@ -78,5 +75,4 @@ impl McpCache {
     pub fn remove_ids(&self, key: &str) {
         self.ids_map.remove(key);
     }
-    
 }

@@ -6,9 +6,7 @@ use mcp_macro::mcp_proto;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex},
-};
+use crate::mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RpcResult {
@@ -18,6 +16,7 @@ pub struct RpcResult {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Tool {
     description: String,
+    #[serde(rename = "inputSchema")]
     input_schema: HashMap<String, serde_json::Value>,
     name: String,
 }
@@ -60,7 +59,11 @@ impl MCProtocol for ListToolsProtocol {
         Ok(req)
     }
 
-    async fn call(&self, req: ListToolsRequest, reqx: &Requestx) -> Result<(ListToolsResponse, Responsex)> {
+    async fn call(
+        &self,
+        req: ListToolsRequest,
+        reqx: &Requestx,
+    ) -> Result<(ListToolsResponse, Responsex)> {
         let instance_id = reqx.instance_id.clone();
         let mcp_cache = reqx.mcp_cache;
 
