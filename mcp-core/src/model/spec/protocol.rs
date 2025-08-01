@@ -11,6 +11,12 @@ pub struct ProtocolRequest<T> {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ProtocolNotificationRequest {
+    pub method: String,
+    pub jsonrpc: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ProtocolResponse<T> {
     pub jsonrpc: String,
     pub id: u64,
@@ -93,5 +99,5 @@ pub type InitRequest = ProtocolRequest<InitParams>;
 pub type InitResponse = ProtocolResponse<InitResult>;
 pub type ToolCallRequest = ProtocolRequest<ToolCallParams>;
 pub type ToolCallResponse = ProtocolResponse<ToolCallResult>;
-pub type NotificationsInitializedRequest = ProtocolRequest<EmptyParams>;
+pub type NotificationsInitializedRequest = ProtocolNotificationRequest;
 pub type NotificationsInitializedResponse = ();
