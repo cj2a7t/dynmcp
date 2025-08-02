@@ -52,11 +52,13 @@ pub fn init_http_client() -> Result<()> {
         .map_err(|_| anyhow!("HTTP client already initialized"))?;
     Ok(())
 }
-pub fn get_http_client() -> Arc<HttpClientProvider> {
+pub fn get_http_client() -> Result<Arc<HttpClientProvider>> {
     HTTP_CLIENT
-        .get()
-        .expect("HTTP client not initialized")
-        .clone()
+        .get_or_try_init(|| {
+            let client = HttpClientProvider::new()?;
+            Ok(Arc::new(client))
+        })
+        .map(|arc| arc.clone())
 }
 
 pub fn init_app_config() -> Result<()> {

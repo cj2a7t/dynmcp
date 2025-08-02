@@ -28,9 +28,12 @@ impl McpCache {
     }
 
     pub fn get_tds_by_name(&self, name: &str) -> Option<TDS> {
+        debug!(?name, "Full name before lookup");
+        debug!(?self.tds_name_map, "Full tds_name_map before lookup");
+        debug!(?self.tds_map, "Full tds_map before lookup");
         self.tds_name_map.get(name).and_then(|tool_id_ref| {
             self.tds_map
-                .get(tool_id_ref.key())
+                .get(tool_id_ref.value())
                 .map(|v| v.value().clone())
         })
     }

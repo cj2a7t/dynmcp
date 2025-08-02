@@ -38,6 +38,8 @@ impl MCProtocol for CallToolProtocol {
         // call API
         let tds_ext_info = tds.tds_ext_info;
 
+        // TODO only a mock call now
+        // TODO the request should be constructed according to the parameter types.
         let url = format!("{}{}", tds_ext_info.domain, tds_ext_info.path);
 
         let toolcall_req = HttpRequestOptions::<serde_json::Value> {
@@ -45,7 +47,7 @@ impl MCProtocol for CallToolProtocol {
             headers: Some(Default::default()),
             body: Some(serde_json::Value::Null),
         };
-        let toolcall_res: String = get_http_client()
+        let toolcall_res: String = get_http_client()?
             .request_uri(&url, toolcall_req)
             .await
             .unwrap();
