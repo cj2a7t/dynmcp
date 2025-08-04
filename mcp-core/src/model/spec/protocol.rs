@@ -1,12 +1,13 @@
+use mcp_common::xds::tds::TDS;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProtocolRequest<T> {
+    pub id: u64,
     pub method: String,
     pub jsonrpc: String,
-    pub id: u64,
     pub params: T,
 }
 
@@ -17,9 +18,16 @@ pub struct ProtocolNotificationRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ProtocolResponse<T> {
-    pub jsonrpc: String,
+pub struct ProtocolEmptyRequest {
     pub id: u64,
+    pub method: String,
+    pub jsonrpc: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProtocolResponse<T> {
+    pub id: u64,
+    pub jsonrpc: String,
     pub result: T,
 }
 
@@ -73,6 +81,29 @@ pub struct ServerInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct RpcResult {
+    pub tools: Vec<Tool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Tool {
+    description: String,
+    #[serde(rename = "inputSchema")]
+    input_schema: HashMap<String, serde_json::Value>,
+    name: String,
+}
+
+impl From<TDS> for Tool {
+    fn from(tds: TDS) -> Self {
+        Tool {
+            description: tds.description,
+            input_schema: tds.input_schema,
+            name: tds.name,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ToolCallParams {
     pub name: String,
     pub arguments: HashMap<String, Value>,
@@ -101,3 +132,5 @@ pub type ToolCallRequest = ProtocolRequest<ToolCallParams>;
 pub type ToolCallResponse = ProtocolResponse<ToolCallResult>;
 pub type NotificationsInitializedRequest = ProtocolNotificationRequest;
 pub type NotificationsInitializedResponse = ();
+pub type ListToolsRequest = ProtocolEmptyRequest;
+pub type ListToolsResponse = ProtocolResponse<RpcResult>;

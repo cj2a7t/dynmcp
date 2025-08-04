@@ -3,7 +3,7 @@ use mcp_common::constants::constants::mcp_protocol_consts::{
     JSONRPC_VERSION, SERVER_NAME, SERVER_VERSION,
 };
 use mcp_macro::mcp_proto;
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::{
     mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex},
@@ -20,11 +20,6 @@ pub struct InitializeProtocol;
 impl MCProtocol for InitializeProtocol {
     type JSONRPCRequest = InitRequest;
     type JSONRPCResponse = InitResponse;
-
-    fn cast(&self, value: &Value) -> Result<Self::JSONRPCRequest> {
-        let req = serde_json::from_value(value.to_owned())?;
-        Ok(req)
-    }
 
     async fn call(&self, req: InitRequest, _reqx: &Requestx) -> Result<(InitResponse, Responsex)> {
         let response = InitResponse {
