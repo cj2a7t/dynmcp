@@ -1,49 +1,11 @@
-use std::collections::HashMap;
-
 use anyhow::Result;
-use mcp_common::{constants::constants::mcp_protocol_consts::JSONRPC_VERSION, xds::tds::TDS};
+use mcp_common::constants::constants::mcp_protocol_consts::JSONRPC_VERSION;
 use mcp_macro::mcp_proto;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
-use crate::mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcResult {
-    tools: Vec<Tool>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Tool {
-    description: String,
-    #[serde(rename = "inputSchema")]
-    input_schema: HashMap<String, serde_json::Value>,
-    name: String,
-}
-
-impl From<TDS> for Tool {
-    fn from(tds: TDS) -> Self {
-        Tool {
-            description: tds.description,
-            input_schema: tds.input_schema,
-            name: tds.name,
-        }
-    }
-}
-
-#[derive(Serialize, Debug)]
-pub struct ListToolsResponse {
-    jsonrpc: String,
-    result: RpcResult,
-    id: i32,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ListToolsRequest {
-    pub id: i32,
-    pub method: String,
-    pub jsonrpc: String,
-}
+use crate::{
+    mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex},
+    model::spec::protocol::{ListToolsRequest, ListToolsResponse, RpcResult, Tool},
+};
 
 #[derive(Default)]
 pub struct ListToolsProtocol;
@@ -53,11 +15,6 @@ pub struct ListToolsProtocol;
 impl MCProtocol for ListToolsProtocol {
     type JSONRPCRequest = ListToolsRequest;
     type JSONRPCResponse = ListToolsResponse;
-
-    fn cast(&self, value: &Value) -> Result<Self::JSONRPCRequest> {
-        let req = serde_json::from_value(value.clone())?;
-        Ok(req)
-    }
 
     async fn call(
         &self,

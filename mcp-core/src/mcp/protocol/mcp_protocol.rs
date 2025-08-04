@@ -6,6 +6,7 @@ use dashmap::DashMap;
 use erased_serde::Serialize as ErasedSerialize;
 use mcp_common::cache::mcp_cache::McpCache;
 use once_cell::sync::Lazy;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::error::dyn_execute_error::DynExecuteError;
@@ -37,7 +38,7 @@ pub struct DynExecuteResult {
 
 #[async_trait]
 pub trait MCProtocol {
-    type JSONRPCRequest: 'static + Send;
+    type JSONRPCRequest: 'static + Send + DeserializeOwned;
     type JSONRPCResponse: 'static + ErasedSerialize + Send + Sync;
 
     async fn call(
@@ -46,7 +47,10 @@ pub trait MCProtocol {
         _reqx: &Requestx,
     ) -> Result<(Self::JSONRPCResponse, Responsex)>;
 
-    fn cast(&self, value: &Value) -> Result<Self::JSONRPCRequest>;
+    fn cast(&self, value: &Value) -> Result<Self::JSONRPCRequest> {
+        let req = serde_json::from_value(value.clone())?;
+        Ok(req)
+    }
 }
 
 #[async_trait]

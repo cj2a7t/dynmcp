@@ -4,7 +4,6 @@ use mcp_common::{
     http_client::model::HttpRequestOptions, provider::global_provider::get_http_client,
 };
 use mcp_macro::mcp_proto;
-use serde_json::Value;
 
 use crate::{
     mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex},
@@ -19,10 +18,6 @@ pub struct CallToolProtocol;
 impl MCProtocol for CallToolProtocol {
     type JSONRPCRequest = ToolCallRequest;
     type JSONRPCResponse = ToolCallResponse;
-
-    fn cast(&self, value: &Value) -> Result<Self::JSONRPCRequest> {
-        Ok(serde_json::from_value(value.to_owned())?)
-    }
 
     async fn call(
         &self,

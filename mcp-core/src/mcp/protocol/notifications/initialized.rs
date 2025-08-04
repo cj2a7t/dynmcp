@@ -1,11 +1,9 @@
-use anyhow::Result;
-use mcp_macro::mcp_proto;
-use serde_json::Value;
-
 use crate::{
     mcp::protocol::mcp_protocol::{MCProtocol, Requestx, Responsex},
     model::spec::protocol::{NotificationsInitializedRequest, NotificationsInitializedResponse},
 };
+use anyhow::Result;
+use mcp_macro::mcp_proto;
 
 #[derive(Default)]
 pub struct NotificationInitializedProtocol;
@@ -15,10 +13,6 @@ pub struct NotificationInitializedProtocol;
 impl MCProtocol for NotificationInitializedProtocol {
     type JSONRPCRequest = NotificationsInitializedRequest;
     type JSONRPCResponse = NotificationsInitializedResponse;
-
-    fn cast(&self, value: &Value) -> Result<Self::JSONRPCRequest> {
-        Ok(serde_json::from_value(value.to_owned())?)
-    }
 
     async fn call(
         &self,
