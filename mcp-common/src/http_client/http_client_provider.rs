@@ -1,8 +1,8 @@
-use anyhow::{ Result, anyhow };
-use reqwest::{ Client, Method, Response };
-use serde::{ de::DeserializeOwned, Serialize };
+use anyhow::{anyhow, Result};
+use reqwest::{Client, Method, Response, StatusCode};
+use serde::{de::DeserializeOwned, Serialize};
 
-use crate::http_client::model::{ HttpRequestOptions, HttpResponseFormat, JsonResponse };
+use crate::http_client::model::{HttpRequestOptions, HttpResponseFormat, JsonResponse};
 
 #[derive(Debug, Clone)]
 pub struct HttpClientProvider {
@@ -10,7 +10,6 @@ pub struct HttpClientProvider {
 }
 
 impl HttpClientProvider {
-
     pub fn new() -> Result<Self> {
         let client = Client::builder().build()?;
         Ok(Self { client })
@@ -19,7 +18,7 @@ impl HttpClientProvider {
     async fn send<T: Serialize + Send + Sync>(
         &self,
         url: &str,
-        options: &HttpRequestOptions<T>
+        options: &HttpRequestOptions<T>,
     ) -> Result<Response> {
         let method = options.method.parse::<Method>()?;
         let mut req = self.client.request(method, url);
@@ -78,11 +77,19 @@ impl HttpClientProvider {
     ///
     /// assert_eq!(response.len(), 8);
     /// ```
-    pub async fn request_uri<T, R>(&self, url: &str, options: HttpRequestOptions<T>) -> Result<R>
-        where T: Serialize + Send + Sync, R: HttpResponseFormat + Send
+    pub async fn request_uri<T, R>(
+        &self,
+        url: &str,
+        options: HttpRequestOptions<T>,
+    ) -> Result<(StatusCode, R)>
+    where
+        T: Serialize + Send + Sync,
+        R: HttpResponseFormat + Send,
     {
         let resp = self.send(url, &options).await?;
-        R::from_response(resp).await
+        let status = resp.status();
+        let parsed = R::from_response(resp).await?;
+        Ok((status, parsed))
     }
 
     /// Sends an HTTP request and parses the JSON response into a struct.
@@ -107,10 +114,18 @@ impl HttpClientProvider {
     ///
     /// assert_eq!(response.json.unwrap()["foo"], "bar");
     /// ```
-    pub async fn request_json<T, R>(&self, url: &str, options: HttpRequestOptions<T>) -> Result<R>
-        where T: Serialize + Send + Sync, R: DeserializeOwned
+    pub async fn request_json<T, R>(
+        &self,
+        url: &str,
+        options: HttpRequestOptions<T>,
+    ) -> Result<(StatusCode, R)>
+    where
+        T: Serialize + Send + Sync,
+        R: DeserializeOwned,
     {
         let resp = self.send(url, &options).await?;
-        JsonResponse::from_response(resp).await
+        let status = resp.status();
+        let parsed = JsonResponse::from_response(resp).await?;
+        Ok((status, parsed))
     }
 }
