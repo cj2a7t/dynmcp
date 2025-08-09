@@ -6,6 +6,7 @@ use axum::{
 };
 use serde::de::DeserializeOwned;
 use std::ops::Deref;
+use validator::Validate;
 
 use crate::error::api_error::RestAPIError;
 
@@ -21,7 +22,7 @@ impl<T> Deref for ValidatedJson<T> {
 
 impl<S, T> FromRequest<S> for ValidatedJson<T>
 where
-    T: DeserializeOwned + Send,
+    T: DeserializeOwned + Send + Validate,
     S: Send + Sync,
 {
     type Rejection = RestAPIError;
@@ -29,6 +30,9 @@ where
     async fn from_request(req: Request<Body>, state: &S) -> Result<Self, Self::Rejection> {
         let Json(value) = Json::<T>::from_request(req, state)
             .await
+            .map_err(|err| RestAPIError::bad_request(anyhow!(err.to_string())))?;
+        value
+            .validate()
             .map_err(|err| RestAPIError::bad_request(anyhow!(err.to_string())))?;
         Ok(ValidatedJson(value))
     }
