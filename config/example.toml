@@ -1,0 +1,18 @@
+[app]
+host = "127.0.0.1"
+port = 8080
+data_source = "mysql"
+api_key = "your_api"
+
+[log]
+log_level = "debug"
+log_dir = "logs"
+log_name = "app.log"
+
+[data_source.mysql]
+url = "mysql://user:pwd@host:port/dynmcp"
+
+[data_source.etcd]
+endpoints = ["http://etcd_host:2379"]
+username = "user"
+password = "pwd"
