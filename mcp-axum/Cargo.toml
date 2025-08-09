@@ -19,3 +19,4 @@ clap = { workspace = true }
 erased-serde = { workspace = true }
 tracing = { workspace = true }
 async-trait = { workspace = true }
+validator = { workspace = true }

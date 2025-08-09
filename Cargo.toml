@@ -18,6 +18,7 @@ tracing-appender = "0.2.3"
 # === Error Handling ===
 anyhow = "1.0.98"
 thiserror = "2.0.12"
+validator = { version = "0.20.0", features = ["derive"] }
 
 # === Async Runtime and Traits ===
 tokio = { version = "1.45.1", features = ["full"] }
