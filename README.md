@@ -1,8 +1,7 @@
 <div align="center">
   <img src="https://github.com/user-attachments/assets/e2f0e415-abcb-41dc-b456-84f0067ed889" alt="DynMCP Logo" width="120" height="120">
+  <h1>DynMCP - Dynamic Model Context Protocol Server</h1>
 </div>
-
-# DynMCP - Dynamic Model Context Protocol Server
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
