@@ -1,4 +1,7 @@
-# DynMCP - 动态模型上下文协议服务器
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/e2f0e415-abcb-41dc-b456-84f0067ed889" alt="DynMCP Logo" width="120" height="120">
+  <h1>DynMCP - 动态模型上下文协议服务器</h1>
+</div>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
