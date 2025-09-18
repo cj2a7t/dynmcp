@@ -12,7 +12,7 @@ pub fn create_router(app_state: AppState) -> Router {
     Router::new()
         // Data Plane
         // TODO Stream[able] Http
-        .route("/mcp/{instance_id}", post(mcp_handler::handle_message))
+        .route("/mcp/{ids_id}", post(mcp_handler::handle_message))
         // health check
         .route("/healthz", get(healthz_handler::healthz))
         // Control Plane

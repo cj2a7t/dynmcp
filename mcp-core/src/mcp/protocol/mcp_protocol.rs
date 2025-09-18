@@ -28,7 +28,7 @@ impl Responsex {
 
 pub struct Requestx<'a> {
     pub mcp_cache: &'a McpCache,
-    pub instance_id: String,
+    pub ids_id: &'a str,
 }
 
 pub struct DynExecuteResult {
