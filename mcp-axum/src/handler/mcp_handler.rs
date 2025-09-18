@@ -12,14 +12,14 @@ use crate::{
 };
 
 pub async fn handle_message(
-    Path(instance_id): Path<String>,
+    Path(ids_id): Path<String>,
     State(state): State<AppState>,
     Json(jsonrpc_request): Json<Value>,
 ) -> Result<impl IntoResponse, RestAPIError> {
     // create a request context for the MCP protocol
     let reqx = Requestx {
         mcp_cache: &state.mcp_cache,
-        instance_id: instance_id.clone(),
+        ids_id: &ids_id,
     };
 
     // execute dynamic mcp protocol

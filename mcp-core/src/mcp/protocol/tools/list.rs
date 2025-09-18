@@ -21,11 +21,11 @@ impl MCProtocol for ListToolsProtocol {
         req: ListToolsRequest,
         reqx: &Requestx,
     ) -> Result<(ListToolsResponse, Responsex)> {
-        let instance_id = reqx.instance_id.clone();
+        let ids_id = reqx.ids_id;
         let mcp_cache = reqx.mcp_cache;
 
         let tools = mcp_cache
-            .list_tds_by_ids_id(&instance_id)
+            .list_tds_by_ids_id(ids_id)
             .into_iter()
             .map(Tool::from)
             .collect::<Vec<Tool>>();
