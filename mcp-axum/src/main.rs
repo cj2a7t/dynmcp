@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Ok, Result};
+use dashmap::DashMap;
 use mcp_common::{
     cache::mcp_cache::McpCache, log::log::init_logging, provider::global_provider::get_app_config,
 };
@@ -8,11 +9,14 @@ use mcp_plugin::datasource::factory::DataSourceFactory;
 use tokio::net::TcpListener;
 use tracing::info;
 
-use crate::{model::app_state::AppState, router::router::create_router};
+use crate::{
+    model::app_state::{AppState, SessionManager},
+    router::router::create_router,
+};
 
 mod error;
-mod handler;
 mod extractor;
+mod handler;
 mod model;
 mod router;
 
@@ -35,7 +39,10 @@ async fn main() -> Result<()> {
     info!("DataSource initialized: {:?}", config.data_source);
 
     // init axum router
-    let app_state: AppState = AppState::new(mcp_cache, ds, config.clone());
+    let session_manager = Arc::new(SessionManager {
+        sessions: DashMap::new(),
+    });
+    let app_state: AppState = AppState::new(mcp_cache, ds, config.clone(), session_manager);
     let router: axum::Router = create_router(app_state);
 
     // axum start
