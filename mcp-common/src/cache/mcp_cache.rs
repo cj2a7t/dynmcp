@@ -78,4 +78,8 @@ impl McpCache {
     pub fn remove_ids(&self, key: &str) {
         self.ids_map.remove(key);
     }
+
+    pub fn get_ids(&self, id: &str) -> Option<IDS> {
+        self.ids_map.get(id).map(|v| v.value().clone())
+    }
 }

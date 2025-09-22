@@ -20,3 +20,4 @@ erased-serde = { workspace = true }
 tracing = { workspace = true }
 async-trait = { workspace = true }
 validator = { workspace = true }
+futures = {version = "0.3.31"}

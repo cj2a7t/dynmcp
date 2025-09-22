@@ -8,6 +8,7 @@ pub struct IDSCmd {
     pub name: String,
     #[validate(length(min = 1, message = "IDS tool_ids must contain at least 1 element"))]
     pub tool_ids: Vec<String>,
+    pub metadata: String,
 }
 
 pub trait IntoIDS {
@@ -20,6 +21,7 @@ impl IntoIDS for IDSCmd {
             id,
             name: self.name,
             tool_ids: self.tool_ids,
+            metadata: self.metadata,
         }
     }
 }

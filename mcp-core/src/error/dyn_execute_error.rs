@@ -4,6 +4,12 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DynExecuteError {
+    #[error("iDS not found")]
+    IdsNotFound,
+
+    #[error("Missing 'Mcp-Session-Id' field in headers")]
+    MissingMcpSessionId,
+
     #[error("Missing 'method' field in request")]
     MissingMethod,
 
@@ -20,6 +26,8 @@ pub enum DynExecuteError {
 impl DynExecuteError {
     pub fn status(&self) -> DynMCPHttpStatus {
         match self {
+            DynExecuteError::IdsNotFound => DynMCPHttpStatus::NotFound,
+            DynExecuteError::MissingMcpSessionId => DynMCPHttpStatus::NotFound,
             DynExecuteError::MissingMethod => DynMCPHttpStatus::BadRequest,
             DynExecuteError::UnsupportedMethod(_) => DynMCPHttpStatus::NotFound,
             DynExecuteError::InvalidRequest => DynMCPHttpStatus::BadRequest,
