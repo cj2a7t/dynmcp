@@ -1,6 +1,5 @@
 use axum::{
     extract::{Path, State},
-    http::HeaderMap,
     response::{IntoResponse, Response},
     Json,
 };
