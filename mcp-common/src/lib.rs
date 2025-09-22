@@ -7,3 +7,4 @@ pub mod xds;
 pub mod log;
 pub mod config;
 pub mod model;
+pub mod enums;

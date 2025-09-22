@@ -2,10 +2,17 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IDSMetadata {
+    // legacy | streamable-stateless | streamable-stateful
+    pub proto_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IDS {
     pub id: String,
     pub name: String,
     pub tool_ids: Vec<String>,
+    pub metadata: String,
 }
 
 impl IDS {
