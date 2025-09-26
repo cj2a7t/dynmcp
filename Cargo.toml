@@ -22,6 +22,7 @@ validator = { version = "0.20.0", features = ["derive"] }
 
 # === Async Runtime and Traits ===
 tokio = { version = "1.45.1", features = ["full"] }
+tokio-stream = { version = "0.1.17", features = ["full"] }
 async-trait = "0.1.88"
 
 # === Serialization ===

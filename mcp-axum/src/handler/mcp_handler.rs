@@ -1,21 +1,27 @@
+use std::{convert::Infallible, sync::Arc, time::Duration};
+
 use axum::{
     extract::{Path, State},
-    response::{IntoResponse, Response},
+    response::{sse::Event, IntoResponse, Response, Sse},
     Json,
 };
-use mcp_common::{enums::ids_protocol_type::IdsProtoType, xds::ids::IDSMetadata};
+use futures::{stream::select, StreamExt};
+use mcp_common::{
+    enums::ids_protocol_type::IdsProtoType, sse::broadcast::get_global_broadcast_tx,
+    xds::ids::IDSMetadata,
+};
 use mcp_core::{
     error::dyn_execute_error::DynExecuteError,
     mcp::protocol::mcp_protocol::{self, Requestx},
 };
 use serde_json::{from_str, Value};
+use tokio::time::interval;
+use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream, IntervalStream};
+use tracing::error;
 
 use crate::{
     error::api_error::RestAPIError,
-    model::{
-        app_state::AppState,
-        jsonrpc_response::{once_sse, JSONRpcResponse},
-    },
+    model::{app_state::AppState, jsonrpc_response::JSONRpcResponse, sse_response::once_sse},
 };
 
 pub async fn mcp_post(
@@ -54,4 +60,40 @@ pub async fn mcp_post(
     };
 
     Ok(response)
+}
+
+pub async fn mcp_get(Path(ids_id): Path<String>) -> Result<impl IntoResponse, RestAPIError> {
+    // TODO Last-Event-ID
+
+    // broadcast stream for MCP Notifications
+    let broadcast_tx = get_global_broadcast_tx()?;
+    let ids_id: Arc<str> = ids_id.into();
+    let broadcast_stream = BroadcastStream::new(broadcast_tx.subscribe())
+        .filter_map({
+            move |res| {
+                let ids_id = ids_id.clone();
+                async move {
+                    match res {
+                        Ok(msg) if msg.ids_id.as_str() == ids_id.as_ref() => {
+                            Some(Event::default().data(msg.message))
+                        }
+                        Err(BroadcastStreamRecvError::Lagged(n)) => {
+                            error!("iDS: {}, missed {} broadcast messages", &*ids_id, n);
+                            None
+                        }
+                        _ => None,
+                    }
+                }
+            }
+        })
+        .map(|event| Ok::<Event, Infallible>(event));
+
+    // heartbeat stream
+    let heartbeat_stream = IntervalStream::new(interval(Duration::from_secs(10)))
+        .map(|_| Ok::<Event, Infallible>(Event::default().event("ping").data("keep-alive")));
+
+    // combined stream
+    let combined = select(broadcast_stream, heartbeat_stream);
+
+    Ok(Sse::new(combined))
 }
