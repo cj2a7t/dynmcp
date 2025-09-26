@@ -52,13 +52,3 @@ where
         }
     }
 }
-
-pub fn once_sse<D: Serialize>(data: &D) -> axum::http::Response<axum::body::Body> {
-    let json = serde_json::to_string(data).unwrap_or_else(|_| "null".to_string());
-    let stream = stream::once(async move {
-        let event = Event::default().data(json);
-        Ok::<Event, Infallible>(event)
-    });
-    let sse_response = Sse::new(stream).into_response();
-    sse_response
-}
