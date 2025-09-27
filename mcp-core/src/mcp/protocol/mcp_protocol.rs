@@ -16,13 +16,31 @@ static REGISTRY: Lazy<DashMap<String, Arc<dyn DynMCProtocol>>> = Lazy::new(DashM
 #[derive(Debug)]
 pub struct Responsex {
     pub http_status: u16,
+
+    pub protocol_method: Option<String>,
+
+    // initialize phase
+    pub initialize_session_id: Option<String>,
 }
 impl Responsex {
     pub fn default() -> Self {
-        Responsex { http_status: 200 }
+        Responsex {
+            http_status: 200,
+            protocol_method: None,
+            initialize_session_id: None,
+        }
     }
     pub fn accepted() -> Self {
-        Responsex { http_status: 202 }
+        Responsex {
+            http_status: 202,
+            protocol_method: None,
+            initialize_session_id: None,
+        }
+    }
+
+    pub fn with_method(mut self, method: String) -> Self {
+        self.protocol_method = Some(method);
+        self
     }
 }
 
@@ -156,5 +174,6 @@ pub async fn execute_dyn(
         .await
         .map_err(DynExecuteError::ExecutionError)?;
 
+    let respx = respx.with_method(method.to_string());
     Ok(DynExecuteResult { response, respx })
 }

@@ -2,6 +2,7 @@ use std::{convert::Infallible, sync::Arc, time::Duration};
 
 use axum::{
     extract::{Path, State},
+    http::{HeaderMap, HeaderValue},
     response::{sse::Event, IntoResponse, Response, Sse},
     Json,
 };
@@ -25,6 +26,7 @@ use crate::{
 };
 
 pub async fn mcp_post(
+    headers: HeaderMap,
     Path(ids_id): Path<String>,
     State(state): State<AppState>,
     Json(jsonrpc_request): Json<Value>,
@@ -51,13 +53,34 @@ pub async fn mcp_post(
 
     // build response by ids protocol type
     let proto_type: IdsProtoType = ids_metadata.proto_type.as_str().into();
-    let response = match proto_type {
+    let mut response = match proto_type {
         IdsProtoType::StreamableStateless => {
             JSONRpcResponse::with_u16_status(result.respx.http_status, result.response)
                 .into_response()
         }
         IdsProtoType::Other(_) => once_sse(&result.response),
     };
+
+    let session_id = headers.get("Mcp-Session-Id").and_then(|v| v.to_str().ok());
+    let session_value = result
+        .respx
+        .initialize_session_id
+        .or_else(|| session_id.map(|s| s.to_string()))
+        .unwrap_or_default();
+    response
+        .headers_mut()
+        .insert("Mcp-Session-Id", HeaderValue::from_str(&session_value)?);
+    response
+        .headers_mut()
+        .insert("Mcp-Protocol-Version", HeaderValue::from_str("2025-06-18")?);
+    response.headers_mut().insert(
+        "Dynmcp-Protocol-Method",
+        HeaderValue::from_str(&result.respx.protocol_method.unwrap_or_default())?,
+    );
+    response.headers_mut().insert(
+        "Dynmcp-Protocol-Type",
+        HeaderValue::from_str(ids_metadata.proto_type.as_str())?,
+    );
 
     Ok(response)
 }
@@ -95,5 +118,5 @@ pub async fn mcp_get(Path(ids_id): Path<String>) -> Result<impl IntoResponse, Re
     // combined stream
     let combined = select(broadcast_stream, heartbeat_stream);
 
-    Ok(Sse::new(combined))
+    Ok(Sse::new(combined).into_response())
 }
