@@ -26,10 +26,10 @@ use crate::{
 };
 
 pub async fn mcp_post(
+    headers: HeaderMap,
     Path(ids_id): Path<String>,
     State(state): State<AppState>,
     Json(jsonrpc_request): Json<Value>,
-    headers: HeaderMap,
 ) -> Result<Response, RestAPIError> {
     // create a request context for the MCP protocol
     let reqx = Requestx {
