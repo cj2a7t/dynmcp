@@ -8,7 +8,9 @@ use axum::{
 };
 use futures::{stream::select, StreamExt};
 use mcp_common::{
-    enums::ids_protocol_type::IdsProtoType, sse::broadcast::get_global_broadcast_tx,
+    enums::ids_protocol_type::IdsProtoType,
+    sse::broadcast::get_global_broadcast_tx,
+    utils::{header_builder::HeaderBuilder, header_extractor::HeaderExtractor},
     xds::ids::IDSMetadata,
 };
 use mcp_core::{
@@ -61,26 +63,24 @@ pub async fn mcp_post(
         IdsProtoType::Other(_) => once_sse(&result.response),
     };
 
-    let session_id = headers.get("Mcp-Session-Id").and_then(|v| v.to_str().ok());
+    // Use HeaderExtractor to get session ID
+    let header_extractor = HeaderExtractor::new(&headers);
+    let session_id = header_extractor.get_str("Mcp-Session-Id");
     let session_value = result
         .respx
         .initialize_session_id
-        .or_else(|| session_id.map(|s| s.to_string()))
+        .or_else(|| session_id)
         .unwrap_or_default();
-    response
-        .headers_mut()
-        .insert("Mcp-Session-Id", HeaderValue::from_str(&session_value)?);
-    response
-        .headers_mut()
-        .insert("Mcp-Protocol-Version", HeaderValue::from_str("2025-06-18")?);
-    response.headers_mut().insert(
-        "Dynmcp-Protocol-Method",
-        HeaderValue::from_str(&result.respx.protocol_method.unwrap_or_default())?,
-    );
-    response.headers_mut().insert(
-        "Dynmcp-Protocol-Type",
-        HeaderValue::from_str(ids_metadata.proto_type.as_str())?,
-    );
+
+    // Use HeaderBuilder to set response headers
+    HeaderBuilder::new(&mut response)
+        .set_str("Mcp-Session-Id", &session_value)?
+        .set_str("Mcp-Protocol-Version", "2025-06-18")?
+        .set_optional(
+            "Dynmcp-Protocol-Method",
+            result.respx.protocol_method.as_deref(),
+        )?
+        .set_str("Dynmcp-Protocol-Type", ids_metadata.proto_type.as_str())?;
 
     Ok(response)
 }

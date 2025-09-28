@@ -1550,6 +1550,7 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "async-trait",
+ "axum 0.8.4",
  "bytes",
  "clap",
  "config",
