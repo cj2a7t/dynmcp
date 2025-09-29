@@ -2,20 +2,24 @@ use std::{convert::Infallible, sync::Arc, time::Duration};
 
 use axum::{
     extract::{Path, State},
-    http::{HeaderMap, HeaderValue},
+    http::HeaderMap,
     response::{sse::Event, IntoResponse, Response, Sse},
     Json,
 };
 use futures::{stream::select, StreamExt};
 use mcp_common::{
     enums::ids_protocol_type::IdsProtoType,
-    sse::broadcast::get_global_broadcast_tx,
+    sse::{
+        broadcast::get_global_broadcast_tx,
+        session_manager::{get_session_manager, StreamableSession},
+    },
     utils::{header_builder::HeaderBuilder, header_extractor::HeaderExtractor},
     xds::ids::IDSMetadata,
 };
 use mcp_core::{
     error::dyn_execute_error::DynExecuteError,
     mcp::protocol::mcp_protocol::{self, Requestx},
+    model::spec::protocol_method::ProtocolMethod,
 };
 use serde_json::{from_str, Value};
 use tokio::time::interval;
@@ -44,43 +48,67 @@ pub async fn mcp_post(
         .mcp_cache
         .get_ids(&ids_id)
         .ok_or_else(|| RestAPIError::for_json_rpc(DynExecuteError::IdsNotFound))?;
-
-    // proto type
     let ids_metadata: IDSMetadata = from_str(ids.metadata.as_str())?;
 
-    // execute dynamic mcp protocol
+    // [Core] Execute dynamic mcp protocol
     let result = mcp_protocol::execute_dyn(jsonrpc_request, &reqx)
         .await
         .map_err(|err| RestAPIError::for_json_rpc(err))?;
 
-    // build response by ids protocol type
+    // Response by ids protocol type
     let proto_type: IdsProtoType = ids_metadata.proto_type.as_str().into();
     let mut response = match proto_type {
         IdsProtoType::StreamableStateless => {
             JSONRpcResponse::with_u16_status(result.respx.http_status, result.response)
                 .into_response()
         }
-        IdsProtoType::Other(_) => once_sse(&result.response),
+        _ => once_sse(&result.response),
     };
 
-    // Use HeaderExtractor to get session ID
+    // Responsex
+    let resp_protocol_method = result
+        .respx
+        .protocol_method
+        .ok_or_else(|| RestAPIError::for_json_rpc(DynExecuteError::MissingMethod))?;
+    let proto_method = resp_protocol_method.as_str();
+
+    // Extract header
     let header_extractor = HeaderExtractor::new(&headers);
     let session_id = header_extractor.get_str("Mcp-Session-Id");
-    let session_value = result
+
+    // Build header
+    let mut header_builder = HeaderBuilder::new(&mut response);
+    header_builder
+        .set_str("Mcp-Protocol-Version", "2025-06-18")?
+        .set_optional("Dynmcp-Protocol-Method", Some(proto_method))?
+        .set_str("Dynmcp-Protocol-Type", ids_metadata.proto_type.as_str())?;
+
+    // Verify Mcp-Session-Id
+    let init_proto_method = ProtocolMethod::Initialize.as_str();
+    if proto_method != init_proto_method
+        && session_id.is_none()
+        && proto_type == IdsProtoType::StreamableStateless
+    {
+        return Err(RestAPIError::for_json_rpc(
+            DynExecuteError::MissingMcpSessionId,
+        ));
+    }
+
+    // Use HeaderExtractor to get session ID
+    let resp_session_id = result
         .respx
         .initialize_session_id
         .or_else(|| session_id)
         .unwrap_or_default();
+    header_builder.set_str("Mcp-Session-Id", &resp_session_id)?;
 
-    // Use HeaderBuilder to set response headers
-    HeaderBuilder::new(&mut response)
-        .set_str("Mcp-Session-Id", &session_value)?
-        .set_str("Mcp-Protocol-Version", "2025-06-18")?
-        .set_optional(
-            "Dynmcp-Protocol-Method",
-            result.respx.protocol_method.as_deref(),
-        )?
-        .set_str("Dynmcp-Protocol-Type", ids_metadata.proto_type.as_str())?;
+    // Put session to global streamable session manager
+    if proto_method == init_proto_method && proto_type == IdsProtoType::StreamableStateful {
+        // session manager
+        let session_manager = get_session_manager()?;
+        let session_value = StreamableSession { ids_id: ids_id };
+        session_manager.put(&resp_session_id, &session_value).await;
+    }
 
     Ok(response)
 }

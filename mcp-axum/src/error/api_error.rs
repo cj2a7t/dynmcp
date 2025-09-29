@@ -21,13 +21,6 @@ impl RestAPIError {
         }
     }
 
-    pub fn not_found<E: Into<Error>>(err: E) -> Self {
-        Self {
-            error: err.into(),
-            status: StatusCode::NOT_FOUND,
-        }
-    }
-
     pub fn bad_request<E: Into<Error>>(err: E) -> Self {
         Self {
             error: err.into(),
