@@ -28,3 +28,4 @@ tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
 config = { workspace = true }
 axum = { workspace = true }
+moka = {workspace = true}

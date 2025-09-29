@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Ok, Result};
-use dashmap::DashMap;
 use mcp_common::{
     cache::mcp_cache::McpCache, log::log::init_logging, provider::global_provider::get_app_config,
     sse::broadcast::get_broadcast_tx,

@@ -34,6 +34,7 @@ erased-serde = "0.4.6"
 dashmap = "6.1.0"
 once_cell = "1.21.3"
 arc-swap = "1.7.1"
+moka = { version = "0.12", features = ["future"] }
 
 # === Command Line Parsing ===
 clap = { version = "4.5.40", features = ["derive"] }

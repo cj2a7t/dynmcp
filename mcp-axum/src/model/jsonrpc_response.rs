@@ -1,10 +1,7 @@
-use std::convert::Infallible;
-
 use axum::{
     http::{header::CONTENT_TYPE, StatusCode},
-    response::{sse::Event, IntoResponse, Response, Sse},
+    response::{IntoResponse, Response},
 };
-use futures::stream;
 use serde::Serialize;
 
 pub struct JSONRpcResponse<T> {
@@ -18,10 +15,6 @@ impl<T> JSONRpcResponse<T> {
             status: StatusCode::OK,
             body,
         }
-    }
-
-    pub fn with_status(status: StatusCode, body: T) -> Self {
-        Self { status, body }
     }
 
     pub fn with_u16_status(u16_status: u16, body: T) -> Self {
