@@ -9,3 +9,4 @@ pub mod model;
 pub mod provider;
 pub mod sse;
 pub mod xds;
+pub mod utils;
